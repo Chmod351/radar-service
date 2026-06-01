@@ -12,7 +12,6 @@ export class BunEventPublisher implements  EventPublisher {
     this.emitter = new EventEmitter();
     try {
       this.emitter.on("scan_event",async (eventData) => {
-        console.log(JSON.stringify(eventData));
         await fetch(this.webhook,{
           method:"POST",
           headers:{

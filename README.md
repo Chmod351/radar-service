@@ -51,20 +51,6 @@ en la carpeta raiz : `bun run radar -S target.com`
 `bun run radar man`
 
 
-### Dashboard General
-
-<img width="1346" height="328" alt="2026-05-26_10-05-32" src="https://github.com/user-attachments/assets/efb4d279-cdf3-44a0-ac9f-179b4f6be4a6" />
-
-### Info By Id
-
-<img width="633" height="505" alt="2026-05-26_10-17-24" src="https://github.com/user-attachments/assets/fffa7611-877d-40a5-8441-a7839bf1bb5b" />
-
-
-### Histórico de cambios Delta
-
-<img width="635" height="783" alt="2026-05-26_10-17-49" src="https://github.com/user-attachments/assets/c07c5536-5fa8-4485-b7c4-2ce2227ee8c2" />
-
-
 ## Variables
 
 ``NODE_ENV``=test ó dev ` guardar informacion local o no y define que se imprime en la consola
@@ -120,7 +106,6 @@ Recibe 2 tipos de eventos:
     }
   ],
   "webserver": "nginx",
-  "priority": 3,
   "total_stages_executed": 3
 }``
 

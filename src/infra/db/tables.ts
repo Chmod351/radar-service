@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS infrastructure (
     ip TEXT PRIMARY KEY,
     asn TEXT,
     asn_owner TEXT,
+    country TEXT,
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

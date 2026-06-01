@@ -53,7 +53,6 @@ export class Orchestrator {
 
             scannedIps.set(result.ip, scanPromise);
             const finalData = await scanPromise;
-            console.log("-----------finalData",finalData);
             this.eventPublisher.publish("host:updated", "success", {
               scanId,
               status:"process",
