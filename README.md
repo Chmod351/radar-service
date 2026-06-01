@@ -1,5 +1,5 @@
-[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/Chmod351/radar?color=green&label=version&sort=semver)](https://github.com/Chmod351/radar/releases)
-![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/Chmod351/radar?color=green) ![GitHub issues](https://img.shields.io/github/issues/Chmod351/radar?color=red) ![GitHub last commit (by committer)](https://img.shields.io/github/last-commit/Chmod351/radar) ![GitHub top language](https://img.shields.io/github/languages/top/Chmod351/radar?color=blue) ![](https://img.shields.io/github/license/Chmod351/radar.svg)
+[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/Chmod351/radar?color=green&label=version&sort=semver)](https://github.com/Chmod351/radar-service/releases)
+![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/Chmod351/radar-service?color=green) ![GitHub issues](https://img.shields.io/github/issues/Chmod351/radar-service?color=red) ![GitHub last commit (by committer)](https://img.shields.io/github/last-commit/Chmod351/radar-service) ![GitHub top language](https://img.shields.io/github/languages/top/Chmod351/radar-service?color=blue) ![](https://img.shields.io/github/license/Chmod351/radar-service.svg)
 
 ![Screenshot_from_2023-08-02_14-38-24-removebg-preview](https://github.com/user-attachments/assets/4cfed1a6-4c17-4e6f-afd9-55cb4c3efbb1)
 
