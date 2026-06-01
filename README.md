@@ -1,77 +1,76 @@
 [![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/Chmod351/radar?color=green&label=version&sort=semver)](https://github.com/Chmod351/radar-service/releases)
 ![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/Chmod351/radar-service?color=green) ![GitHub issues](https://img.shields.io/github/issues/Chmod351/radar-service?color=red) ![GitHub last commit (by committer)](https://img.shields.io/github/last-commit/Chmod351/radar-service) ![GitHub top language](https://img.shields.io/github/languages/top/Chmod351/radar-service?color=blue) ![](https://img.shields.io/github/license/Chmod351/radar-service.svg)
 
-![Screenshot_from_2023-08-02_14-38-24-removebg-preview](https://github.com/user-attachments/assets/4cfed1a6-4c17-4e6f-afd9-55cb4c3efbb1)
-
+ 
 #   RADAR: Reconnaissance & Advanced Data Analysis Runtime
 
-Radar es una herramienta de interfaz de línea de comandos (CLI) de alta eficiencia desarrollada en TypeScript sobre el runtime Bun, diseñada para la automatización de reconocimiento (Recon) y la evaluación de la superficie de ataque externa de una organización.A diferencia de los scripts secuenciales tradicionales, Radar implementa una arquitectura dirigida por eventos basada en streaming de datos asíncrono y colas de procesamiento con deduplicación en tiempo constante O(1). Esto le permite descubrir, mapear y evaluar activos digitales a escala masiva sin bloqueos por latencia de red
+  Radar is a high-efficiency command-line interface (CLI) tool developed in TypeScript using the Bun runtime, designed for automating reconnaissance (Recon) and assessing an organization's external attack surface. Unlike traditional sequential scripts, Radar implements an event-driven architecture based on asynchronous data streaming and processing queues with constant-time O(1) deduplication. This enables it to discover, map, and assess digital assets on a massive scale without being blocked by network latency.
 
-# El Pipeline Técnico de Escaneo:
+ * Asset Discovery and Enclave: Executes a passive and active enumeration phase combining subfinder and assetfinder to map all subdomains associated with the target.
 
- - Descubrimiento y Enclave de Activos: Ejecuta una fase de enumeración pasiva y activa combinando subfinder y assetfinder para mapear la totalidad de subdominios asociados al objetivo.
+ * Infrastructure Mapping and Routing: Extracts DNS records via dnsx and intercepts the ASN (Autonomous System Number). ASN analysis allows for precisely identifying physical network ownership to classify the infrastructure into Cloud, Self-Hosted, or Reseller environments, detecting the presence or absence of CDNs (mitigation filters).
 
- -  Mapeo de Infraestructura y Enrutamiento: Extrae registros DNS mediante dnsx e intercepta el ASN (Autonomous System Number). El análisis del ASN permite identificar de forma precisa la propiedad física de la red para clasificar la infraestructura en entornos Cloud, Self-Hosted o Reseller, detectando la presencia o ausencia de CDNs (filtros de mitigación).
+ * Web Telemetry and Attribution: Uses httpx and whois queries to determine the asset's legitimacy, domain registration data, HTTP status codes, and security header availability.
 
- -  Telemetría Web y Atribución: Utiliza httpx y consultas whois para determinar la legitimidad del activo, datos de registro de dominio, códigos de estado HTTP y disponibilidad de cabeceras de seguridad.
+ * Cross-Fingerprinting and Port Scanning: Performs a port inspection on the 100 most common vectors using nmap, correlating results with technology and web version identification provided by whatweb. The core of the system applies cross-validation between network telemetry (DNS phase) and the application layer (web phase) to eliminate false positives.
 
- - Fingerprinting Cruzado y Escaneo de Puertos: Realiza una inspección de puertos sobre los 100 vectores más comunes mediante nmap correlacionando los resultados con la identificación de tecnologías y versiones web provistas por whatweb. El core del sistema aplica una validación cruzada entre la telemetría de red (fase DNS) y la capa de aplicación (fase web) para eliminar falsos positivos.
-
- -  Ponderación de Riesgo Dinámica (Scoring): Todos los hallazgos son procesados por un motor de scoring que clasifica los activos en Tiers de Criticidad (Impacto Alto, Medio y Bajo) basándose en la exposición de datos y obsolescencia del stack tecnológico, centralizando el histórico de deltas en una base de datos local para su posterior visualización.
+ * Dynamic Risk Weighting (Scoring): All findings are processed by a scoring engine that classifies assets into Criticality Tiers (High, Medium, and Low Impact) based on data exposure and technology stack obsolescence, centralizing historical deltas in a local database for subsequent visualization.
 
 
-## Opción 1_ Clona el repo:
-```git clone https://github.com/Chmod351/radar```
+## Option 1: Clone the Repository
 
-Construir la Imagen
+`git clone https://github.com/Chmod351/radar`
 
-Desde la raíz del proyecto, ejecutá:
+### Build the Image
 
-```docker build -t radar .```
+From the project root, run:
 
+`docker build -t radar .`
 
-## Opción 2_ Descargar la Imagen (Recomendado)
+## Option 2: Download the Image (Recommended)
 
 `docker pull chmod351/radar:latest`
 
-#   Despliegue con Docker
+# Docker Deployment
 
-El proyecto se encuentra empaquetado y disponible en Docker Hub sobre una base de Kali Linux con todas las herramientas de reconocimiento (`subfinder`, `nmap`, `httpx`, etc.) y el runtime de `Bun` preinstalados.
+The project is packaged and available on Docker Hub based on a Kali Linux image, with all reconnaissance tools (`subfinder`, `nmap`, `httpx`, etc.) and the `Bun` runtime pre-installed.
 
-###   Descargar una de las Imágenes DisponibleS
-* `chmod351/radar:latest` - Última versión estable de la rama master.
-* `chmod351/radar:1.1.0` - Release específica de producción.
+### Download Available Images
 
-## Uso:
+* `chmod351/radar:latest` - Latest stable version from the master branch
 
-en la carpeta raiz : `bun run radar -S target.com`
+## Usage:
 
-## Leer el manual
+In the root folder: `bun run radar -S target.com`
+
+## Read the Manual
 
 `bun run radar man`
 
-
 ## Variables
 
-``NODE_ENV``=test ó dev ` guardar informacion local o no y define que se imprime en la consola
-`
-`IS_DOCKER`  para saber en que entornos guardar la base de datos. Sin esto la base de datos persiste usando como ruta el directorio de ejecucion  
-`WEBHOOK_URL`= api del webhook para recibir los eventos del escaneo en tiempo real: 
+* `NODE_ENV`=test or dev: Determines local information storage and console output definitions.
+* `IS_DOCKER`: Identifies the environment to determine database storage locations. Without this, the database persists using the execution directory as the path.
+* `WEBHOOK_URL`: API webhook to receive real-time scanning events.
 
-Recibe 2 tipos de eventos: 
+It receives two types of events:
 
-### Fase 1 o 3 terminada:
+### Phase 1 or 3 Completed:
 
-`` {
+```json
+{
   "scanId": 104,
   "status": "completed",
   "total_stages_executed": 3,
   "total_subdomains_found": 42
-}``
+}
 
-### Streamings de Datos: 
+```
 
-`` {
+### Data Streaming:
+
+```json
+{
   "scanId": 104,
   "status": "process",
   "target": "target.com",
@@ -107,20 +106,20 @@ Recibe 2 tipos de eventos:
   ],
   "webserver": "nginx",
   "total_stages_executed": 3
-}``
+}
 
-
-## Tests:
-para correr los test `bun run test`
+```
 
 ## Lint:
-para correr el linter por todo el proyecto `bun run lint:fix` 
 
-## Radar usa SQLITE para almacenar la informacion
- 
-consulta el manual para leer las queries que hay disponibles.
+To run the linter across the entire project: `bun run lint:fix`
+
+## Radar uses SQLite to store information
+
+Check the manual to read the available queries.
 
 ## Disclaimer
 
-Esta herramienta fue creada para la gestión de activos y auditoría de seguridad autorizada. El uso en sistemas sin consentimiento es responsabilidad del usuario
+This tool was created for asset management and authorized security auditing. Any use on systems without consent is the sole responsibility of the user.
+
 
