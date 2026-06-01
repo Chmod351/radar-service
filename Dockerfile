@@ -1,9 +1,9 @@
 FROM kalilinux/kali-last-release
 
 ENV DEBIAN_FRONTEND=noninteractive
-
+RUN echo "deb http://archive.kali.org/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list
 # Repositorios y actualizaciones
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --fix-missing \
     bash \
     curl \
     jq \
