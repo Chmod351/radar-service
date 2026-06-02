@@ -8,11 +8,14 @@ CREATE TABLE IF NOT EXISTS scans (
 );
 
 CREATE TABLE IF NOT EXISTS infrastructure (
-    ip TEXT PRIMARY KEY,
+    scan_id INTEGER,
+    ip TEXT,
     asn TEXT,
     asn_owner TEXT,
     country TEXT,
-    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (scan_id, ip),
+    FOREIGN KEY(scan_id) REFERENCES scans(id)
 );
 
 CREATE TABLE IF NOT EXISTS whois_data (
@@ -43,7 +46,7 @@ CREATE TABLE IF NOT EXISTS targets (
     csp BOOLEAN,
     xfo BOOLEAN,
     nosniff BOOLEAN,
-    FOREIGN KEY(ip) REFERENCES infrastructure(ip),
+    FOREIGN KEY(scan_id, ip) REFERENCES infrastructure(scan_id, ip),
     FOREIGN KEY(root_domain) REFERENCES whois_data(root_domain),
     FOREIGN KEY(scan_id) REFERENCES scans(id)
 );
