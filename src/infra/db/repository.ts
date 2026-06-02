@@ -44,91 +44,93 @@ export class RadarRepository {
     }
   }
 
-  updateNetworkLayer(
-    networkData:AnalyzedTarget,
-    scanId:number|bigint,
-  ){
+updateNetworkLayer(networkData: AnalyzedTarget, scanId: number | bigint) {
     const infraSql = `
-    INSERT INTO infrastructure (
-      ip, asn, asn_owner
-    ) VALUES (
-      $ip, $asn, $asn_owner
-    ) ON CONFLICT(ip) DO UPDATE SET  
-      asn = COALESCE(excluded.asn, infrastructure.asn),
-      last_updated = CURRENT_TIMESTAMP
+      INSERT INTO infrastructure (
+        scan_id, ip, asn, asn_owner, country, last_updated
+      ) VALUES (
+        $scan_id, $ip, $asn, $asn_owner, $country, CURRENT_TIMESTAMP
+      ) ON CONFLICT(scan_id, ip) DO UPDATE SET  
+        asn = COALESCE(excluded.asn, infrastructure.asn),
+        asn_owner = COALESCE(excluded.asn_owner, infrastructure.asn_owner),
+        country = COALESCE(excluded.country, infrastructure.country),
+        last_updated = CURRENT_TIMESTAMP
     `;
 
     const targetSql = `
-    UPDATE targets 
-    SET ip = ?, url = ?,
-      status_code = ?,
-      title = ?,
-      webserver = ?,
-      cdn = ?,
-      action = ?,
-      scan_status = 'RESOLVED'
-    WHERE host = ? AND scan_id = ?
+      UPDATE targets 
+      SET ip = ?, 
+          url = ?,
+          status_code = ?,
+          title = ?,
+          webserver = ?,
+          cdn = ?,
+          action = ?,
+          scan_status = 'RESOLVED'
+      WHERE host = ? AND scan_id = ?
     `;
 
-    const { 
-      ip, asn,  country, asn_owner, // Infra
-      status_code, title, webserver, cdn, host,  url,action,        // Target
+    const {
+      ip, asn, country, asn_owner,
+      status_code, title, webserver, cdn, host, url, action,
     } = networkData;
 
     try {
-    // La transacción se define y se autoejecuta
       const tx = this.db.transaction(() => {
         this.db.prepare(infraSql).run({
-          $ip: ip, 
-          $asn: asn,
-          $asn_owner: asn_owner,
-          $country: country,
+          $scan_id: Number(scanId),
+          $ip: ip || "0.0.0.0",
+          $asn: asn || null,
+          $asn_owner: asn_owner || null,
+          $country: country || null,
         });
+
         return this.db.prepare(targetSql).run(
-          ip,
-          url,
-          status_code,
-          title,
-          webserver,
-          cdn,
-          action,
+          ip || "0.0.0.0",
+          url || null,
+          status_code || null,
+          title || null,
+          webserver || null,
+          cdn || 0,
+          action || 0,
           host,
-          scanId,
+          Number(scanId),
         );
       });
+      
       tx();
-     
-      const target = this.db.prepare("SELECT id FROM targets WHERE host = ? AND scan_id = ?").get(host,scanId) as { id: number };
+
+      const target = this.db
+        .prepare("SELECT id FROM targets WHERE host = ? AND scan_id = ?")
+        .get(host, Number(scanId)) as { id: number } | undefined;
+
       if (!target) {
         throw new Error(`No se pudo encontrar el target recién actualizado: ${host}`);
       }
       return target.id;
 
     } catch (e) {
-      /* handle error */
       logger.error("ERROR EN EL GUARDADO DE LA FASE 2", getErrorMessage(e));
       throw e;
     }
   }
 
+updateServiceLayer(host: string, data: AnalyzedTarget, scanId: number | bigint) {
+    const numericScanId = Number(scanId);
 
-  updateServiceLayer(host: string, data: AnalyzedTarget,scanId:number|bigint) {
-    // 1. Query para actualizar los datos específicos del host escaneado por Nmap (Padre)
     const updateTargetSql = `
-    UPDATE targets 
-    SET status_code = $status,
-    title = $title, 
-    webserver = $server, 
-    hsts = $hsts,     
-    csp = $csp,        
-    xfo = $xfo,       
-    nosniff = $nosniff,
-    app_status= $app_status,
-    scan_status = 'COMPLETED'
-    WHERE host = $host AND scan_id = $scanId
-`;
-
-    // 2. PROPAGACIÓN MASIVA: Iguala los datos de todos los targets que compartan la misma IP en este escaneo
+      UPDATE targets 
+      SET status_code = $status,
+          title = $title, 
+          webserver = $server, 
+          hsts = $hsts,      
+          csp = $csp,        
+          xfo = $xfo,       
+          nosniff = $nosniff,
+          app_status = $app_status,
+          scan_status = 'COMPLETED'
+      WHERE host = $host AND scan_id = $scanId
+    `;
 
     const propagateTargetsSql = `
       UPDATE targets
@@ -144,7 +146,6 @@ export class RadarRepository {
         AND scan_id = $scanId
     `;
 
-    // 3. PROPAGACIÓN MASIVA DE PUERTOS: Limpia y clona los puertos para toda la vecindad de la IP
     const clearNeighborPortsSql = `
       DELETE FROM ports 
       WHERE target_id IN (
@@ -152,16 +153,14 @@ export class RadarRepository {
       )
     `;
 
-
     const insertNeighborPortsSql = `
-      INSERT INTO ports (target_id, port, protocol, service, version)
-      SELECT t.id, $port, $proto, $svc, $ver
+      INSERT INTO ports (target_id, port, protocol, transport, service, version)
+      SELECT t.id, $port, $proto, $transport, $svc, $ver
       FROM targets t
       WHERE t.ip = (SELECT ip FROM targets WHERE host = $host AND scan_id = $scanId)
         AND t.scan_id = $scanId
     `;
 
-    // 4. PROPAGACIÓN MASIVA DE HTTP STACK
     const clearNeighborStackSql = `
       DELETE FROM http_stack 
       WHERE target_id IN (
@@ -177,48 +176,44 @@ export class RadarRepository {
         AND t.scan_id = $scanId
     `;
 
-
     try {
       const transaction = this.db.transaction(() => {
-      // Actualizar metadata del target
         const params = {
-          $status: data.status_code,
-          $title: data.title,
-          $server: data.webserver,
-          $hsts: data.http_intel.security.hsts ? 1 : 0,
-          $csp: data.http_intel.security.csp ? 1 : 0,
-          $xfo: data.http_intel.security.xfo ? 1 : 0,
-          $nosniff: data.http_intel.security.nosniff ? 1 : 0,
-          $app_status: data.app_status,
+          $status: data.status_code || null,
+          $title: data.title || null,
+          $server: data.webserver || null,
+          $hsts: data.http_intel?.security?.hsts ? 1 : 0,
+          $csp: data.http_intel?.security?.csp ? 1 : 0,
+          $xfo: data.http_intel?.security?.xfo ? 1 : 0,
+          $nosniff: data.http_intel?.security?.nosniff ? 1 : 0,
+          $app_status: data.app_status || 0,
           $host: host,
-          $scanId: scanId,
+          $scanId: numericScanId,
         };
 
-        
         this.db.prepare(updateTargetSql).run(params);
         this.db.prepare(propagateTargetsSql).run(params);
-        this.db.prepare(clearNeighborPortsSql).run({ $host: host, $scanId: scanId });
         
+        this.db.prepare(clearNeighborPortsSql).run({ $host: host, $scanId: numericScanId });
         const portStmt = this.db.prepare(insertNeighborPortsSql);
         for (const p of data.open_ports || []) {
           portStmt.run({
             $host: host,
-            $scanId: scanId,
+            $scanId: numericScanId,
             $port: p.port,
-            $proto: p.protocol || 6,
+            $proto: p.protocol || "tcp", 
+            $transport: (p as any).transport || 6, 
             $svc: p.service || "unknown",
             $ver: p.version || null,
           });
         }
-      
-        this.db.prepare(clearNeighborStackSql).run({ $host: host, $scanId: scanId }); 
 
-
+        this.db.prepare(clearNeighborStackSql).run({ $host: host, $scanId: numericScanId }); 
         const stackStmt = this.db.prepare(insertNeighborStackSql);
         for (const tech of data.http_stack || []) {
           stackStmt.run({
             $host: host,
-            $scanId: scanId,
+            $scanId: numericScanId,
             $name: tech.name,
             $version: tech.version || null,
           });
@@ -226,47 +221,36 @@ export class RadarRepository {
       });
 
       return transaction();
-   
     } catch (e) {
-      /* handle error */
       logger.error("UPDATE SERVICE LAYER", getErrorMessage(e));
       throw e;
     }
   }
 
-
-
-  syncRefinedData(refinedTargets: AnalyzedTarget[]) {
+syncRefinedData(refinedTargets: (AnalyzedTarget & { scanId: number })[]) {
     const sql = `
-    UPDATE targets 
-    SET 
-      app_status = $status,
-      webserver = $webserver,
-      action = $action,
-      scan_status = 'COMPLETED'
-    WHERE host = $host AND scan_id = $scanId
-  `;
+      UPDATE targets 
+      SET app_status = $status,
+          webserver = $webserver,
+          action = $action,
+          scan_status = 'COMPLETED'
+      WHERE host = $host AND scan_id = $scanId
+    `;
     try {
       const stmt = this.db.prepare(sql);
-  
-      const sync = this.db.transaction((targets) => {
-
+      const sync = this.db.transaction((targets: any[]) => {
         for (const t of targets) {
           stmt.run({
-            $status: t.app_status,
-            $webserver: t.webserver,
-            $action: t.action,
+            $status: t.app_status || 0,
+            $webserver: t.webserver || null,
+            $action: t.action || 0,
             $host: t.host,
-            $scanId: t.scanId,
+            $scanId: Number(t.scanId),
           });
         }
       });
-
       sync(refinedTargets);
-  
-
     } catch (e) {
-    /* handle error */
       logger.error("SYNC FAILED", getErrorMessage(e));
       throw e;
     }
