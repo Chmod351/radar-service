@@ -14,13 +14,12 @@ export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Pr
     logger.info("DNS PHASE:",`${subdomain}`);
     const resolved = await resolveSingleDomain(subdomain);
     if (!resolved || resolved.ip === "0.0.0.0") return null; 
-
     const [asnInfo, webInfo] = await Promise.all([
       withRetry("ASN-INFO", ()=>    getASNInfo(resolved.ip),{ retries:2 }),
       withRetry("WHATWEB", ()=>   enrichWebData(subdomain),{ retries:2 }),
     ]);
 
-    const baseData= {
+    const baseData= { 
       ...resolved,
       ...webInfo,
       ...asnInfo,
@@ -36,10 +35,15 @@ export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Pr
         .catch(() => emptyWhois);
     }
 
-    infraService.saveDNSphaseInfo(analyzed as AnalyzedTarget,scanId);
-    const normalized: AnalyzedTarget=normalizeTarget(analyzed as AnalyzedTarget);
+    const res= await infraService.saveDNSphaseInfo(analyzed as AnalyzedTarget,scanId);
+    console.debug("[PHASE 2 DB SAVE]:", JSON.stringify(res));
+  
+   const normalized: AnalyzedTarget = normalizeTarget(
+  { ...analyzed, id: res } as AnalyzedTarget, 
+  scanId
+);
     return normalized;
-    
+
   } catch (error: unknown) {
     logger.error("DNS-PHASE", getErrorMessage(error));
     return null;

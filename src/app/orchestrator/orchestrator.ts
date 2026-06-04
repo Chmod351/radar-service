@@ -18,8 +18,8 @@ export class Orchestrator {
     const scannedIps = new Map<string, Promise<AnalyzedTarget>>();   
     let totalOfSubs=0;
     logger.info(PHASES.ORCHESTRATOR, "iniciando....");
-    const scanId = reconService.startScan(target);
-    const subdomainStream = streamAllSubdomains(target, scanId);
+    const scanId =await reconService.startScan(target);
+    const subdomainStream =streamAllSubdomains(target, scanId);
     
     for await (const sub of subdomainStream) {
       totalOfSubs++;
@@ -32,10 +32,10 @@ export class Orchestrator {
           // Fase 2: Resolución DNS, ASN y HTTP Intel base
           const result = await dnsPhaseStream(sub, scanId);
           if (!result || !result.ip || result.ip === "N/A" || result.ip === "0.0.0.0") return;
-
-
+          console.debug("PHASE 2 CHECKING FOR ID:",result?.id);
           this.eventPublisher.publish("host:discovered", "processing", {
             scanId,
+            id:result?.id || 0,
             status:"process",
             target: result.host || "",
             ip: result.ip,
@@ -53,8 +53,10 @@ export class Orchestrator {
 
             scannedIps.set(result.ip, scanPromise);
             const finalData = await scanPromise;
+            console.debug("[FINALDATA:]",finalData.id);
             this.eventPublisher.publish("host:updated", "success", {
               scanId,
+              id:finalData.id,
               status:"process",
               target:finalData.host,
               ip:finalData.ip,
@@ -81,10 +83,11 @@ export class Orchestrator {
               };
 
               // Persistimos el registro del Hijo con sus puertos heredados en la base de datos
-              fingerprintingPhaseService.saveFingerprintingInfo(result.host!, updatedChild, scanId);
-
+              const phase3= await fingerprintingPhaseService.saveFingerprintingInfo(result.host!, updatedChild, scanId);
+              console.log("save phase 3:",phase3);
               this.eventPublisher.publish("host:updated", "success", {
                 scanId,
+                id:updatedChild.id,
                 status:"process",
                 target: updatedChild.host,
                 ip: updatedChild.ip,
@@ -107,6 +110,7 @@ export class Orchestrator {
 
     this.eventPublisher.publish("phase-1", "completed", {
       scanId,
+      id:0,
       status:"completed",
       total_subdomains_found:totalOfSubs,
       total_stages_executed:1,
@@ -116,6 +120,7 @@ export class Orchestrator {
     this.eventPublisher.publish("scan:finished", "completed",
       { 
         scanId,
+        id:0,
         status:"completed",
         total_stages_executed:3,
         total_subdomains_found:totalOfSubs,
