@@ -50,9 +50,6 @@ export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): 
     };
   }
 
-  logger.info("NORMALIZE-TARGET", `raw: ${raw.id}`);
-
-  // Si no es nulo, aplicamos tu lógica de limpieza habitual
 
   return {
     scanId,

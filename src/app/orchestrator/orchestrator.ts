@@ -84,7 +84,6 @@ export class Orchestrator {
 
               // Persistimos el registro del Hijo con sus puertos heredados en la base de datos
               const phase3= await fingerprintingPhaseService.saveFingerprintingInfo(result.host!, updatedChild, scanId);
-              console.log("save phase 3:",phase3);
               this.eventPublisher.publish("host:updated", "success", {
                 scanId,
                 id:updatedChild.id,

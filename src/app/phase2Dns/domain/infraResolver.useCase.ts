@@ -36,8 +36,6 @@ export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Pr
     }
 
     const res= await infraService.saveDNSphaseInfo(analyzed as AnalyzedTarget,scanId);
-    console.debug("[PHASE 2 DB SAVE]:", JSON.stringify(res));
-  
    const normalized: AnalyzedTarget = normalizeTarget(
   { ...analyzed, id: res } as AnalyzedTarget, 
   scanId
