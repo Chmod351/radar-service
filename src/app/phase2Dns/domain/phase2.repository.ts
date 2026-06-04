@@ -5,7 +5,7 @@ export class InfraService {
 
   constructor(private repo: RadarRepository){}
 
-  saveDNSphaseInfo(dnsPhase:DnsPhase,scanid:number|bigint){
+  async  saveDNSphaseInfo(dnsPhase:DnsPhase,scanid:number|bigint){
     return this.repo.updateNetworkLayer(dnsPhase as AnalyzedTarget,scanid);
   }
 }

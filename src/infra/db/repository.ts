@@ -44,7 +44,7 @@ export class RadarRepository {
     }
   }
 
-updateNetworkLayer(networkData: AnalyzedTarget, scanId: number | bigint) {
+  updateNetworkLayer(networkData: AnalyzedTarget, scanId: number | bigint) {
     const infraSql = `
       INSERT INTO infrastructure (
         scan_id, ip, asn, asn_owner, country, last_updated
@@ -115,7 +115,7 @@ updateNetworkLayer(networkData: AnalyzedTarget, scanId: number | bigint) {
     }
   }
 
-updateServiceLayer(host: string, data: AnalyzedTarget, scanId: number | bigint) {
+  updateServiceLayer(host: string, data: AnalyzedTarget, scanId: number | bigint) {
     const numericScanId = Number(scanId);
 
     const updateTargetSql = `
@@ -193,7 +193,7 @@ updateServiceLayer(host: string, data: AnalyzedTarget, scanId: number | bigint) 
 
         this.db.prepare(updateTargetSql).run(params);
         this.db.prepare(propagateTargetsSql).run(params);
-        
+      
         this.db.prepare(clearNeighborPortsSql).run({ $host: host, $scanId: numericScanId });
         const portStmt = this.db.prepare(insertNeighborPortsSql);
         for (const p of data.open_ports || []) {
@@ -220,14 +220,26 @@ updateServiceLayer(host: string, data: AnalyzedTarget, scanId: number | bigint) 
         }
       });
 
-      return transaction();
+      // 1. Ejecutamos la transacción
+      transaction();
+
+      // 2. 🟢 Buscamos e interceptamos el ID real de la tabla targets antes de salir
+      const target = this.db
+        .prepare("SELECT id FROM targets WHERE host = ? AND scan_id = ?")
+        .get(host, numericScanId) as { id: number } | undefined;
+
+      if (!target) {
+        throw new Error(`No se pudo encontrar el target tras el Fingerprint de Fase 3: ${host}`);
+      }
+
+      return target.id; // 🚀 Ahora sí viaja el número al Service!
+
     } catch (e) {
       logger.error("UPDATE SERVICE LAYER", getErrorMessage(e));
       throw e;
-    }
-  }
+    }  }
 
-syncRefinedData(refinedTargets: (AnalyzedTarget & { scanId: number })[]) {
+  syncRefinedData(refinedTargets: (AnalyzedTarget)[]) {
     const sql = `
       UPDATE targets 
       SET app_status = $status,

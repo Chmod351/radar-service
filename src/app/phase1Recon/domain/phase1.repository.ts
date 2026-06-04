@@ -3,12 +3,11 @@ import { repo as dbRepo, type RadarRepository } from "../../../infra/db/reposito
 export class ReconService {
   constructor(private repo: RadarRepository) {}
 
-  startScan(rootDomain: string):number | bigint {
-      
+  async startScan(rootDomain: string):Promise<number | bigint> {
     return this.repo.createScan(rootDomain);
   }
 
-  processDiscovery(subdomain: string, scanId: number|bigint, rootDomain: string) {
+  async processDiscovery(subdomain: string, scanId: number|bigint, rootDomain: string) {
     const result =this.repo.registerHost({
       host: subdomain,
       scanId: scanId,

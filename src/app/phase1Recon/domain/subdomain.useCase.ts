@@ -23,7 +23,7 @@ export async function* streamAllSubdomains(target: string,scanId:number|bigint):
         const cleanSub=sub.trim().toLowerCase();
         if (emitedSubdomains.has(cleanSub)) continue; 
 
-        if (reconService.processDiscovery(sub, scanId, target)) {
+        if (await reconService.processDiscovery(sub, scanId, target)) {
           emitedSubdomains.add(cleanSub);
           totalFound++;
           outputQueue.push(cleanSub);

@@ -4,10 +4,10 @@ import { repo as dbRepo, type RadarRepository } from "../../../infra/db/reposito
 export class FingerprintingPhaseService {
   constructor(private repo:RadarRepository){}
 
-  saveFingerprintingInfo(host:string,data:AnalyzedTarget,scanId:number|bigint){
+  async saveFingerprintingInfo(host:string,data:AnalyzedTarget,scanId:number|bigint){
     return this.repo.updateServiceLayer(host, data,scanId);  
   }
-  syncRefinedData(finalConsolidatedData:AnalyzedTarget[]){
+  async syncRefinedData(finalConsolidatedData:AnalyzedTarget[]){
     return this.repo.syncRefinedData(finalConsolidatedData); 
   }
 }

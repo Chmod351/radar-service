@@ -13,7 +13,7 @@ export async function fingerprintingPhase(target: AnalyzedTarget,scanId:number|b
   const host = target.host;
 
   try {
-    logger.info("FINGERPRINTING:",`target: ${target}`);
+    logger.info("FINGERPRINTING:",`target: ${target.host}`);
 
     const [httpData, openPorts] = await Promise.all([
       withRetry("http-intel", ()=>  getWebIntel(target.url),{ retries:2 }),
@@ -21,7 +21,7 @@ export async function fingerprintingPhase(target: AnalyzedTarget,scanId:number|b
     ]);
     
     const httpIntelNormalized=normalizeHttpIntel(httpData.http_intel as HttpIntel);
-
+    
     const   webserver= httpIntelNormalized.server || httpData.http_stack?.[0]?.name;
     const   headersRaw= JSON.stringify(httpData.http_stack || {});
 
@@ -34,8 +34,9 @@ export async function fingerprintingPhase(target: AnalyzedTarget,scanId:number|b
       open_ports: openPorts || [],
       cdn,
     };
-    const normalized = normalizeTarget(result);
-    fingerprintingPhaseService.saveFingerprintingInfo(host, normalized,scanId);
+    const normalized = normalizeTarget(result,scanId);
+    const data= await fingerprintingPhaseService.saveFingerprintingInfo(host, normalized,scanId);
+    console.debug("PHASE 3 DB SAVING:",data);
     return normalized;
   } catch (error: unknown) {
     logger.error("PHASE-03", getErrorMessage(error));
@@ -49,5 +50,7 @@ export async function fingerprintingPhase(target: AnalyzedTarget,scanId:number|b
       http_stack:target.http_stack,
       open_ports:target.open_ports, 
     };
+  } finally {
+    logger.info("PHASE 3:", `[#] Fingerprinting Finalizado ${target.host}`);
   }
 }
