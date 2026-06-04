@@ -1,6 +1,8 @@
+import { randomInt } from "node:crypto";
 import type { AnalyzedTarget, HttpIntel } from "../../../../core/entities/types";
 import { CDN_PROVIDERS, emptyWhois, normalizedIntel, SENSORS } from "../../../../shared/utils/const";
 import { normalizeWhois } from "./whois.mapper";
+import { logger } from "../../../../shared/systemLogger";
 
 
 export function normalizeHttpIntel(raw:HttpIntel):HttpIntel {
@@ -21,10 +23,12 @@ export function normalizeHttpIntel(raw:HttpIntel):HttpIntel {
     attempts:raw.attempts,
   }; 
 }
-export function normalizeTarget(raw: AnalyzedTarget|null): AnalyzedTarget {
+export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): AnalyzedTarget {
   // Si es nulo, generamos el "Grado Cero" del objeto para que el resto del sistema no explote
   if (!raw) {
     return {
+      scanId,
+      id:randomInt(10000),
       host: "",
       ip: "0.0.0.0",
       app_status: 0,
@@ -46,9 +50,13 @@ export function normalizeTarget(raw: AnalyzedTarget|null): AnalyzedTarget {
     };
   }
 
+  logger.info("NORMALIZE-TARGET", `raw: ${raw.id}`);
+
   // Si no es nulo, aplicamos tu lógica de limpieza habitual
 
   return {
+    scanId,
+    id:raw.id,
     host: raw.host,
     ip: raw.ip || "0.0.0.0",
     app_status:raw.app_status ?? 0,
