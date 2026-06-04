@@ -94,6 +94,8 @@ export interface Classifier extends DnsPhase{
 }
 
 export interface AnalyzedTarget extends Classifier, ASNIntel , WebMetadata,ResolvedDomain{
+  scanId:number|bigint;
+  id:number|bigint;
   // Datos de Fase 3 
   http_intel: HttpIntel;
   http_stack: Technology[];
@@ -116,12 +118,14 @@ export interface ReconSource{
 
 export interface EventPhaseEnd{
   scanId:number|bigint,
+  id:number,
   status:"completed",
   total_stages_executed:number,
   total_subdomains_found:number
 }
 
 export interface EventSubdomainAnalisys{
+  id:number|bigint,
   scanId:number|bigint,
   target:string,
   status:"process",
