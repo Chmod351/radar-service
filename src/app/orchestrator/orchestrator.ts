@@ -2,11 +2,13 @@ import type { AnalyzedTarget, EventPublisher } from "../../core/entities/types";
 import { logger } from "../../shared/systemLogger";
 import { PHASES } from "../../shared/utils/const";
 import { getErrorMessage } from "../../shared/utils/utils";
-import { reconService } from "../phase1Recon/domain/phase1.repository";
+// import { reconService } from "../phase1Recon/domain/phase1.repository";
 import { streamAllSubdomains } from "../phase1Recon/domain/subdomain.useCase";
 import { dnsPhaseStream } from "../phase2Dns/domain/infraResolver.useCase";
 import { fingerprintingPhase } from "../phase3Surface/domain/serverFingerprinting.useCase";
 import fingerprintingPhaseService from "../phase3Surface/domain/phase3.repository";
+import { scanId } from "../../infra/enviromentVariables";
+import { normalizeRadarTarget } from "./orchestrator.mapper";
 
 export class Orchestrator {
   constructor(private eventPublisher: EventPublisher){}
@@ -18,7 +20,7 @@ export class Orchestrator {
     const scannedIps = new Map<string, Promise<AnalyzedTarget>>();   
     let totalOfSubs=0;
     logger.info(PHASES.ORCHESTRATOR, "iniciando....");
-    const scanId =await reconService.startScan(target);
+    // const scanId =await reconService.startScan(target);
     const subdomainStream =streamAllSubdomains(target, scanId);
     
     for await (const sub of subdomainStream) {
@@ -33,17 +35,7 @@ export class Orchestrator {
           const result = await dnsPhaseStream(sub, scanId);
           if (!result || !result.ip || result.ip === "N/A" || result.ip === "0.0.0.0") return;
           console.debug("PHASE 2 CHECKING FOR ID:",result?.id);
-          this.eventPublisher.publish("host:discovered", "processing", {
-            scanId,
-            id:result?.id || 0,
-            status:"process",
-            target: result.host || "",
-            ip: result.ip,
-            open_ports:null,
-            webserver:null,
-            http_intel:null,
-            total_stages_executed:2,
-          });
+          this.eventPublisher.publish("host:discovered", "processing",normalizeRadarTarget(result, scanId));
 
           if (!scannedIps.has(result.ip)) {
             // CASO PADRE: Primera vez que vemos esta IP. Se ejecuta Nmap de forma real.
@@ -54,17 +46,7 @@ export class Orchestrator {
             scannedIps.set(result.ip, scanPromise);
             const finalData = await scanPromise;
             console.debug("[FINALDATA:]",finalData.id);
-            this.eventPublisher.publish("host:updated", "success", {
-              scanId,
-              id:finalData.id,
-              status:"process",
-              target:finalData.host,
-              ip:finalData.ip,
-              open_ports:finalData.open_ports,
-              webserver:finalData.webserver,
-              http_intel:finalData.http_intel,
-              total_stages_executed:3,
-            });
+            this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(finalData,scanId));
           } else {
             // CASO HIJO: Host único, pero la IP ya está siendo cubierta por un Padre.
             logger.debug(PHASES.ORCHESTRATOR, `Omitiendo Nmap para ${result.host}. IP ${result.ip} ya está cubierta.`);
@@ -80,21 +62,13 @@ export class Orchestrator {
                 webserver: fatherData.webserver || result.webserver || null,
                 http_intel: fatherData.http_intel,
                 http_stack: fatherData.http_stack,
+                whois:fatherData.whois,
+                whois_raw:fatherData.whois_raw
               };
 
               // Persistimos el registro del Hijo con sus puertos heredados en la base de datos
-              const phase3= await fingerprintingPhaseService.saveFingerprintingInfo(result.host!, updatedChild, scanId);
-              this.eventPublisher.publish("host:updated", "success", {
-                scanId,
-                id:updatedChild.id,
-                status:"process",
-                target: updatedChild.host,
-                ip: updatedChild.ip,
-                open_ports: updatedChild.open_ports,
-                http_intel:updatedChild.http_intel,
-                webserver: updatedChild.webserver,
-                total_stages_executed:3,
-              });
+              // const phase3= await fingerprintingPhaseService.saveFingerprintingInfo(result.host!, updatedChild, scanId);
+              this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(updatedChild,scanId));
             }
           }
         } catch (e: unknown) {
