@@ -35,9 +35,9 @@ export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Pr
         .catch(() => emptyWhois);
     }
 
-    const res= await infraService.saveDNSphaseInfo(analyzed as AnalyzedTarget,scanId);
+    // const res= await infraService.saveDNSphaseInfo(analyzed as AnalyzedTarget,scanId);
    const normalized: AnalyzedTarget = normalizeTarget(
-  { ...analyzed, id: res } as AnalyzedTarget, 
+  { ...analyzed, id: scanId } as AnalyzedTarget, 
   scanId
 );
     return normalized;

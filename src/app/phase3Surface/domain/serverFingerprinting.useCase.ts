@@ -35,7 +35,7 @@ export async function fingerprintingPhase(target: AnalyzedTarget,scanId:number|b
       cdn,
     };
     const normalized = normalizeTarget(result,scanId);
-    const data= await fingerprintingPhaseService.saveFingerprintingInfo(host, normalized,scanId);
+    // const data= await fingerprintingPhaseService.saveFingerprintingInfo(host, normalized,scanId);
     return normalized;
   } catch (error: unknown) {
     logger.error("PHASE-03", getErrorMessage(error));
