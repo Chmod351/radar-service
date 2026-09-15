@@ -124,20 +124,9 @@ export interface EventPhaseEnd{
   total_subdomains_found:number
 }
 
-export interface EventSubdomainAnalisys{
-  id:number|bigint,
-  scanId:number|bigint,
-  target:string,
-  status:"process",
-  ip:string,
-  open_ports:OpenPort[]|null,
-  http_intel:HttpIntel|null,
-  webserver:string | null,
-  total_stages_executed:number
+export interface EventSubdomainAnalisys extends AnalyzedTarget{  
 }
 // src/application/ports/EventPublisher.ts
 export interface EventPublisher {
   publish(event: string, status: string, payload: EventPhaseEnd|EventSubdomainAnalisys): void;
 }
-
-
