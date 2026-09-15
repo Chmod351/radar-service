@@ -1,0 +1,68 @@
+[
+  {
+    "host": "scanme.nmap.org",
+    "ip": "45.33.32.156",
+    "app_status": "PENDING",
+    "whois_raw": null,
+    "asn": "AS63949",
+    "asn_owner": "45.33.32.0/19",
+    "country": "US",
+    "url": "http://scanme.nmap.org:80",
+    "status_code": 200,
+    "title": "Go ahead and ScanMe!",
+    "webserver": "Apache/2.4.7 (Ubuntu)",
+    "cdn": 6,
+    "infra_type": 2,
+    "infra_status": 4,
+    "priority": 3,
+    "action": 3,
+    "http_stack": [
+      {
+        "name": "Apache",
+        "version": "2.4.7"
+      },
+      {
+        "name": "Google-Analytics",
+        "version": "Universal"
+      }
+    ],
+    "open_ports": [
+      {
+        "port": 22,
+        "protocol": 3,
+        "transport": 20,
+        "service": "ssh"
+      },
+      {
+        "port": 80,
+        "protocol": 1,
+        "transport": 20,
+        "service": "http"
+      }
+    ],
+    "vulnerabilities": [],
+    "http_intel": {
+      "protocol": 1,
+      "status": 200,
+      "security": {
+        "hsts": false,
+        "csp": false,
+        "xfo": false,
+        "nosniff": false
+      },
+      "server": "Apache/2.4.7 (Ubuntu)",
+      "poweredBy": "Apache/2.4.7 (Ubuntu)",
+      "cookies": false,
+      "error": null
+    },
+    "whois": {
+      "registrar": null,
+      "creationDate": null,
+      "expirationDate": null,
+      "nameServers": [],
+      "status": [],
+      "emails": null,
+      "raw": ""
+    }
+  }
+]

@@ -7,6 +7,7 @@ import { dnsPhaseStream } from "../phase2Dns/domain/infraResolver.useCase";
 import { fingerprintingPhase } from "../phase3Surface/domain/serverFingerprinting.useCase";
 import { scanId } from "../../infra/enviromentVariables";
 import { normalizeRadarTarget } from "./orchestrator.mapper";
+import { isOsintMode } from "../../infra/enviromentVariables";
 
 export class Orchestrator {
   constructor(private eventPublisher: EventPublisher) { }
@@ -17,11 +18,13 @@ export class Orchestrator {
     const allTasks: Promise<void>[] = [];
     const scannedIps = new Map<string, Promise<AnalyzedTarget>>();
     let totalOfSubs = 0;
-    logger.info(PHASES.ORCHESTRATOR, "iniciando....");
+
+    logger.info(PHASES.ORCHESTRATOR, `Iniciando escaneo... [Modo OSINT: ${isOsintMode}]`);
     const subdomainStream = streamAllSubdomains(target, scanId);
 
     for await (const sub of subdomainStream) {
       totalOfSubs++;
+
       if (activeWorkers.size >= this.concurrencyLimit) {
         await Promise.race(activeWorkers);
       }
@@ -30,8 +33,13 @@ export class Orchestrator {
         try {
           const result = await dnsPhaseStream(sub, scanId);
           if (!result || !result.ip || result.ip === "N/A" || result.ip === "0.0.0.0") return;
-          console.debug("PHASE 2 CHECKING FOR ID:", result?.id);
+
           this.eventPublisher.publish("host:discovered", "processing", normalizeRadarTarget(result, scanId));
+
+          if (isOsintMode) {
+            this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(result, scanId));
+            return; 
+          }
 
           if (!scannedIps.has(result.ip)) {
             const scanPromise = (async () => {
@@ -40,7 +48,6 @@ export class Orchestrator {
 
             scannedIps.set(result.ip, scanPromise);
             const finalData = await scanPromise;
-            console.debug("[FINALDATA:]", finalData.id);
             this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(finalData, scanId));
           } else {
             logger.debug(PHASES.ORCHESTRATOR, `Omitiendo Nmap para ${result.host}. IP ${result.ip} ya está cubierta.`);
@@ -69,22 +76,22 @@ export class Orchestrator {
       worker.finally(() => activeWorkers.delete(worker));
     }
 
+    await Promise.all(allTasks);
+
     this.eventPublisher.publish("phase-1", "completed", {
       scanId,
       id: 0,
       status: "completed",
       total_subdomains_found: totalOfSubs,
-      total_stages_executed: 1,
+      total_stages_executed: isOsintMode ? 2 : 3,
     });
-    await Promise.all(allTasks);
 
-    this.eventPublisher.publish("scan:finished", "completed",
-      {
-        scanId,
-        id: 0,
-        status: "completed",
-        total_stages_executed: 3,
-        total_subdomains_found: totalOfSubs,
-      });
+    this.eventPublisher.publish("scan:finished", "completed", {
+      scanId,
+      id: 0,
+      status: "completed",
+      total_stages_executed: isOsintMode ? 2 : 3,
+      total_subdomains_found: totalOfSubs,
+    });
   }
 }
