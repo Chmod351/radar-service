@@ -12,12 +12,10 @@ export function normalizeRadarTarget(payload: any,scanId:number): AnalyzedTarget
 
   const host = payload.target || payload.host || "";
   
-  // 🟢 Corrección lógica de URL basada en protocolo (Fase 3) o fallback seguro
   const protocol = payload.http_intel?.protocol;
   const isSsl = protocol !== null && protocol !== undefined && protocol !== 0;
   const url = payload.url || (host ? `${isSsl ? "https" : "http"}://${host}` : "");
 
-  // 🟢 Fallback atómico para la estructura de HttpIntel
   const httpIntelNormalized: HttpIntel = {
     protocol: payload.http_intel?.protocol ?? null,
     status: payload.http_intel?.status ?? payload.status_code ?? 0,
@@ -34,7 +32,6 @@ export function normalizeRadarTarget(payload: any,scanId:number): AnalyzedTarget
     error: payload.http_intel?.error || null,
   };
 
-  // 🟢 Fallback para el sub-objeto WhoisIntel
   const whoisNormalized: WhoisIntel = {
     registrar: payload.whois?.registrar || null,
     creationDate: payload.whois?.creationDate || null,
@@ -46,11 +43,9 @@ export function normalizeRadarTarget(payload: any,scanId:number): AnalyzedTarget
   };
 
   return {
-    // Identificadores de control
     scanId: scanId !== undefined ? Number(scanId) : 0,
     id: payload.id !== undefined ? Number(payload.id) : 0,
     
-    // ResolvedDomain + WebMetadata
     host,
     ip: payload.ip || "0.0.0.0",
     url,
