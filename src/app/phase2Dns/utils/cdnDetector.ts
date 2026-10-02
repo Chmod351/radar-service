@@ -20,13 +20,13 @@ export function identifyCDN(asn?:DnsPhase,
    
     // Buscamos la firma en el header 'server'
     for (const sig of signatures) {
-      if (sHeader.includes(sig.key)) {
+      if (sHeader.includes(sig.key) || hRaw.includes(sig.key)) {
         cdn = sig.id;
         break;
       }
     }
 
-    if (headersRaw?.toLowerCase().includes("via: 1.1 google")) {
+    if (/"via"\s*:\s*"1\.1 google/.test(hRaw) || hRaw.includes("via: 1.1 google")) {
       return { cdn: CDN_PROVIDERS.GOOGLE_CDN };
     }
     // si no detectamos CDN, pero el CDN O CACHE  viene en el header es CDN

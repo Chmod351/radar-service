@@ -27,6 +27,7 @@ export function httpIntelBuilder(
     poweredBy: headers["x-powered-by"] || headers["server"] || null,
     cookies,
     attempts,
+    headers: { ...headers },
   };
 }
 

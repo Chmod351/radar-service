@@ -5,8 +5,4 @@ const isDocker = process.env.IS_DOCKER === "true";
 export const isOsintMode = process.env.IS_OSINT ==="true"
 export const scanId =Number(process.env.SCAN_ID)
 
-export const PATH: string = isDev || isTest 
-  ? ":memory:" 
-  : isDocker 
-    ? "/app/data/radar.db"
-    : "radar.db";
+export const PATH: string = process.env.RADAR_DB_PATH || ":memory:";

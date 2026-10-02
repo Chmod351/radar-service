@@ -24,20 +24,28 @@ export function bypassAttemptParser (stdout:string) {
 }
 
 export function headersFormatter(stdout:string) {
-  const headersRaw = stdout.split("\r\n");
+  const headersRaw = stdout.split(/\r?\n/);
+  let statusLineIndex = -1;
+
+  for (let index = 0; index < headersRaw.length; index++) {
+    if (/^HTTP\/\S+\s+\d{3}/i.test(headersRaw[index] || "")) statusLineIndex = index;
+  }
+
   const headers: Record<string,string>={}; 
-    
-  headersRaw.forEach(line => {
+  const statusLine = statusLineIndex >= 0 ? headersRaw[statusLineIndex] || "" : "";
+
+  for (let index = statusLineIndex + 1; index < headersRaw.length && headersRaw[index]; index++) {
+    const line = headersRaw[index] || "";
     const parts = line.split(": ");
     if (parts.length >= 2 && parts[0]) {
       const key = parts[0].toLowerCase();
       const value = parts.slice(1).join(": ").trim();
       headers[key] = value;
     }
-  });
-  const statusLine=headersRaw[0];
-  const statusParts = statusLine ? statusLine.split(" "): [];
-  const statusCode = statusParts.length>=2 && statusParts[1] ? parseInt(statusParts[1]):0;
+  }
+
+  const statusMatch = statusLine.match(/^HTTP\/\S+\s+(\d{3})/i);
+  const statusCode = statusMatch ? Number.parseInt(statusMatch[1] || "0", 10) : 0;
 
   return { statusCode,headers };
     
