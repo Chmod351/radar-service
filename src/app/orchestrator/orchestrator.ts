@@ -62,7 +62,7 @@ export class Orchestrator {
           } else {
             logger.debug(PHASES.ORCHESTRATOR, `Omitiendo Nmap para ${result.host}. IP ${result.ip} ya está cubierta.`);
             const fatherData = await scannedIps.get(result.ip);
-            logger.warn("WHOIS:", fatherData?.whois_raw || "N/A")
+            logger.warn("WHOIS:", fatherData?.whois_raw || "N/A");
             if (fatherData) {
               const updatedChild = {
                 ...(result as AnalyzedTarget),

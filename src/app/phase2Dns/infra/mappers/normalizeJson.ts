@@ -2,7 +2,6 @@ import { randomInt } from "node:crypto";
 import type { AnalyzedTarget, HttpIntel } from "../../../../core/entities/types";
 import { CDN_PROVIDERS, emptyWhois, normalizedIntel, SENSORS } from "../../../../shared/utils/const";
 import { normalizeWhois } from "./whois.mapper";
-import { logger } from "../../../../shared/systemLogger";
 
 
 export function normalizeHttpIntel(raw:HttpIntel):HttpIntel {

@@ -7,7 +7,6 @@ import { normalizeTarget } from "../infra/mappers/normalizeJson";
 import { enrichWebData, getASNInfo, getWhoisIntel, resolveSingleDomain } from "../infraProbes";
 import { identifyCDN } from "../utils/cdnDetector";
 import { classifyTarget } from "../utils/classifyTarget";
-import infraService from "./phase2.repository";
 
 export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Promise<Partial<AnalyzedTarget> | null> {
   try {

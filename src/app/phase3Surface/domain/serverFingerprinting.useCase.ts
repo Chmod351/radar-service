@@ -6,7 +6,6 @@ import { getErrorMessage } from "../../../shared/utils/utils";
 import { normalizeHttpIntel, normalizeTarget } from "../../phase2Dns/infra/mappers/normalizeJson";
 import { identifyCDN } from "../../phase2Dns/utils/cdnDetector";
 import { getWebIntel, scanPortsSafe } from "../serverFingerPrintingProbe";
-import fingerprintingPhaseService from "./phase3.repository";
 
 
 export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number | bigint): Promise<AnalyzedTarget> {
