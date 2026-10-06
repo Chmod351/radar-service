@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="https://img.shields.io/github/v/tag/Chmod351/radar?color=green&label=version&sort=semver" alt="Latest version">
-  <img src="https://img.shields.io/github/license/Chmod351/radar" alt="License">
+  <img src="https://img.shields.io/github/v/tag/Chmod351/radar-service?color=green&label=version&sort=semver" alt="Latest version">
+  <img src="https://img.shields.io/github/license/Chmod351/radar-service" alt="License">
 </p>
 
 # RADAR
