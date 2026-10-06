@@ -198,20 +198,15 @@ function runScanInDocker(targetDomain: string) {
   if (isDev || isTest) {
     args.push("-it");
     args.push("-v", `${currentDir}:/app`);
-    args.push("--entrypoint", "bun");
   }
 
   args.push("-e", `WEBHOOK_URL=${webhookUrl}`);
 
   const imageName = isDev || isTest ? "radar" : "Chmod351/radar:latest";
+  args.push("--entrypoint", "bun");
   args.push(imageName);
 
-  // 3. Argumentos de ejecución del contenedor
-  if (isDev || isTest) {
-    args.push("run", "src/app/use-cases/index.ts", targetDomain);
-  } else {
-    args.push(targetDomain);
-  }
+  args.push("run", "src/app/use-cases/index.ts", targetDomain);
 
   try {
     logger.info("DOCKER:", `Ejecutando escaneo para ${targetDomain}...`);

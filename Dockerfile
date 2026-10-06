@@ -29,7 +29,7 @@ WORKDIR /app
 ENV RADAR_WORKER_SERVER=true
 ENV RADAR_WORKER_PORT=8090
 
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 RUN bun install
 
 COPY . .
