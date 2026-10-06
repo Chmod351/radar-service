@@ -23,18 +23,18 @@ async function main() {
   }
 
   switch (flag) {
-    case "-S": // El flag de Escaneo que abstrae Docker
-      if (!param) {
-        console.error("❌ Error: Se requiere un dominio raíz. Ejemplo: radar -S nmap.org");
-        process.exit(1);
-      }
-
-      runScanInDocker(param);
-      break;
-
-    default:
-      console.log("❌ Flag desconocido. Escribí \"radar man\".");
+  case "-S": // El flag de Escaneo que abstrae Docker
+    if (!param) {
+      console.error("❌ Error: Se requiere un dominio raíz. Ejemplo: radar -S nmap.org");
       process.exit(1);
+    }
+
+    runScanInDocker(param);
+    break;
+
+  default:
+    console.log("❌ Flag desconocido. Escribí \"radar man\".");
+    process.exit(1);
   }
 }
 
