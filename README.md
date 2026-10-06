@@ -1,125 +1,158 @@
-[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/Chmod351/radar?color=green&label=version&sort=semver)](https://github.com/Chmod351/radar-service/releases)
-![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/Chmod351/radar-service?color=green) ![GitHub issues](https://img.shields.io/github/issues/Chmod351/radar-service?color=red) ![GitHub last commit (by committer)](https://img.shields.io/github/last-commit/Chmod351/radar-service) ![GitHub top language](https://img.shields.io/github/languages/top/Chmod351/radar-service?color=blue) ![](https://img.shields.io/github/license/Chmod351/radar-service.svg)
+<p align="center">
+  <img src="https://img.shields.io/github/v/tag/Chmod351/radar?color=green&label=version&sort=semver" alt="Latest version">
+  <img src="https://img.shields.io/github/license/Chmod351/radar" alt="License">
+</p>
 
- 
-#   RADAR: Reconnaissance & Advanced Data Analysis Runtime
+# RADAR
 
-  Radar is a high-efficiency command-line interface (CLI) tool developed in TypeScript using the Bun runtime, designed for automating reconnaissance (Recon) and assessing an organization's external attack surface. Unlike traditional sequential scripts, Radar implements an event-driven architecture based on asynchronous data streaming and processing queues with constant-time O(1) deduplication. This enables it to discover, map, and assess digital assets on a massive scale without being blocked by network latency.
+**Reconnaissance & Advanced Data Analysis Runtime** is a TypeScript/Bun command-line tool for discovering and profiling an organization's internet-facing domain assets. It streams discovered subdomains through DNS, network-ownership, web-server, and (unless OSINT-only mode is enabled) service-fingerprinting checks, then sends structured results to a webhook.
 
- * Asset Discovery and Enclave: Executes a passive and active enumeration phase combining subfinder and assetfinder to map all subdomains associated with the target.
+RADAR is intended for asset inventory and authorized external attack-surface reviews. It is not a vulnerability scanner, exploitation framework, or guarantee that every asset will be discovered.
 
- * Infrastructure Mapping and Routing: Extracts DNS records via dnsx and intercepts the ASN (Autonomous System Number). ASN analysis allows for precisely identifying physical network ownership to classify the infrastructure into Cloud, Self-Hosted, or Reseller environments, detecting the presence or absence of CDNs (mitigation filters).
+## What It Does
 
- * Web Telemetry and Attribution: Uses httpx and whois queries to determine the asset's legitimacy, domain registration data, HTTP status codes, and security header availability.
+RADAR processes a root domain in three stages:
 
- * Cross-Fingerprinting and Port Scanning: Performs a port inspection on the 100 most common vectors using nmap, correlating results with technology and web version identification provided by whatweb. The core of the system applies cross-validation between network telemetry (DNS phase) and the application layer (web phase) to eliminate false positives.
+1. **Subdomain discovery:** runs Subfinder and Assetfinder and deduplicates their output.
+2. **DNS and basic enrichment:** resolves discovered names with dnsx; obtains IP ownership/ASN information through Team Cymru DNS; probes HTTP metadata; classifies CDN indicators; and queries WHOIS for eligible domains.
+3. **Service fingerprinting:** for resolved IPs, checks the 100 most common ports using Nmap (`-F`, open ports only, service/version detection at minimum intensity, and banner script), fingerprints web technologies with WhatWeb, and gathers HTTP headers and status. Nmap work is limited to one scan at a time and repeated IPs reuse the same fingerprint result.
 
- * Dynamic Risk Weighting (Scoring): All findings are processed by a scoring engine that classifies assets into Criticality Tiers (High, Medium, and Low Impact) based on data exposure and technology stack obsolescence, centralizing historical deltas in a local database for subsequent visualization.
+The default run performs all three stages. OSINT-only mode skips Stage 3. Despite some internal data structures and installed packages, the current workflow does not perform vulnerability matching or risk scoring.
 
+## Requirements
 
-## Option 1: Clone the Repository
+### Recommended: Docker
 
-`git clone https://github.com/Chmod351/radar`
+- Docker Engine or Docker Desktop, with permission to run containers.
+- Network access from the container to the target and to the external services/tools used during reconnaissance.
+- A webhook receiver if you want to retain or consume scan results. RADAR does not provide a results UI.
 
-### Build the Image
+The image includes Bun and the reconnaissance utilities used by the scan: Subfinder, Assetfinder, dnsx, httpx-toolkit, Nmap, WhatWeb, whois, curl, and supporting system packages.
 
-From the project root, run:
+### Run Directly on Linux
 
-`docker build -t radar .`
+- Bun (the project uses Bun APIs, including `bun:sqlite`).
+- The same external command-line tools listed above, installed and available on `PATH`.
+- Network/DNS access required for the selected probes.
 
-## Option 2: Download the Image (Recommended)
+Direct local execution is useful for development. The Docker image is the simpler way to get a consistent toolchain.
 
-`docker pull chmod351/radar:latest`
+## Quick Start
 
-# Docker Deployment
+### Use the Published Image Through the CLI
 
-The project is packaged and available on Docker Hub based on a Kali Linux image, with all reconnaissance tools (`subfinder`, `nmap`, `httpx`, etc.) and the `Bun` runtime pre-installed.
+Clone the repository to use its CLI wrapper, then run:
 
-### Download Available Images
+```sh
+git clone https://github.com/Chmod351/radar.git
+cd radar
+docker pull chmod351/radar:latest
+WEBHOOK_URL=https://your.example/api/radar-events bun run radar.ts -S example.com
+```
 
-* `chmod351/radar:latest` - Latest stable version from the master branch
+The `-S` wrapper starts a disposable container and invokes the scan entry point. Set `WEBHOOK_URL` to an endpoint you control; otherwise RADAR uses the built-in default URL (see [Configuration](#configuration)). Only scan domains and systems you are authorized to assess.
 
-## Usage:
+### Build and Run Locally with Docker
 
-In the root folder: `bun run radar -S target.com`
+```sh
+git clone https://github.com/Chmod351/radar.git
+cd radar
+docker build -t radar .
+NODE_ENV=dev WEBHOOK_URL=https://your.example/api/radar-events bun run radar.ts -S example.com
+```
 
-## Read the Manual
+`NODE_ENV=dev` tells the wrapper to use the locally built `radar` image and mount the working tree in the container. The runtime dependencies are installed in the image.
 
-`bun run radar man`
+### Run the Image Directly
 
-## Variables
+The image's default command starts the worker HTTP server, not a one-off scan. To run a scan directly, override its entrypoint:
 
-* `NODE_ENV`=test or dev: Determines local information storage and console output definitions.
-* `IS_DOCKER`: Identifies the environment to determine database storage locations. Without this, the database persists using the execution directory as the path.
-* `WEBHOOK_URL`: API webhook to receive real-time scanning events.
+```sh
+docker run --rm \
+  -e WEBHOOK_URL=https://your.example/api/radar-events \
+  --entrypoint bun \
+  chmod351/radar:latest \
+  run src/app/use-cases/index.ts example.com
+```
 
-It receives two types of events:
+### Run from Bun Without Docker
 
-### Phase 1 or 3 Completed:
+After installing Bun and all required external tools:
+
+```sh
+bun install
+WEBHOOK_URL=https://your.example/api/radar-events bun run src/app/use-cases/index.ts example.com
+```
+
+The script uses the target argument as the root domain. The built-in help is available with `bun run radar.ts man`.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WEBHOOK_URL` | `http://192.168.100.135:8080/api/webhook` | Destination for scan event POSTs. Set this to your receiver. |
+| `IS_OSINT` | `false` | Set to `true` to skip Stage 3 service and web fingerprinting. |
+| `SCAN_ID` | Unset | Numeric scan identifier attached to emitted results. Used by integrations; not generated by the CLI. |
+| `RADAR_DB_PATH` | `:memory:` | SQLite path. The database is ephemeral by default. |
+| `NODE_ENV` | Unset | The CLI wrapper selects its local `radar` image and mounts the project only when set to `dev` or `test`. |
+| `RADAR_WORKER_SERVER` | `true` in the image | Starts the signed-command HTTP worker when running the image's default command. |
+| `RADAR_WORKER_PORT` | `8090` | Worker listen port; `PORT` takes precedence. |
+| `RADAR_WORKER_SECRET` | Required in worker mode | HMAC secret used to authenticate worker scan requests. |
+| `RADAR_DOCKER_IMAGE` | `chmod351/radar:latest` | Image launched by the worker for each scan. |
+| `RADAR_DOCKER_NETWORK` | `bridge` | Docker network passed to worker-launched scan containers. |
+
+`IS_DOCKER` is not read by the current application. The worker currently launches scan containers with `RADAR_DB_PATH=:memory:` regardless of the host's setting. The current scan flow does not expose a database query CLI or a results dashboard; webhook delivery is the supported way to consume results.
+
+## Webhook Events and Data
+
+Every webhook request is an HTTP `POST` with `Content-Type: application/json` and this envelope:
 
 ```json
 {
-  "scanId": 104,
-  "status": "completed",
-  "total_stages_executed": 3,
-  "total_subdomains_found": 42
+  "timestamp": "2026-10-06T12:00:00.000Z",
+  "event": "host:updated",
+  "status": "success",
+  "payload": {}
 }
-
 ```
 
-### Data Streaming:
+Host events use `host:discovered` with `processing`, followed by `host:updated` with `success` or a partial result status. A final `phase-1` and `scan:finished` event report the `scanId`, number of discovered subdomains, and stages executed. Host payloads may include hostnames, IP addresses, URLs, HTTP status/title/server and response headers, security-header indicators, observed cookies, request attempt metadata, ASN/owner/country, CDN indicator, WHOIS fields, detected technologies, open ports, and service/version/banner data. Values depend on what each probe can observe.
 
-```json
-{
-  "scanId": 104,
-  "status": "process",
-  "target": "target.com",
-  "ip": "1.1.1.1",
-  "open_ports": [
-    {
-      "port": 443,
-      "service": "https",
-      "protocol": 6,
-      "version": "nginx",
-      "transport": 6
-    }
-  ],
-  "http_intel": [
-    {
-      "protocol": 1,
-      "status": 200,
-      "security": { "strict-transport-security": true },
-      "server": "nginx",
-      "poweredBy": null,
-      "cookies": true,
-      "attempts": [
-        {
-          "method": "GET",
-          "header": null,
-          "status": 200,
-          "size": 1024,
-          "timestamp": "2026-05-28T11:47:00Z"
-        }
-      ],
-      "error": null
-    }
-  ],
-  "webserver": "nginx",
-  "total_stages_executed": 3
-}
+RADAR sends scan results only to the configured webhook. The probes also make outbound requests or queries to the target infrastructure and public resolution/registration services as part of scanning. Specifically, discovery uses Subfinder and Assetfinder; DNS and ASN data use DNS queries (including Team Cymru's `origin.asn.cymru.com`); HTTP probes contact discovered hosts; WHOIS queries the relevant root domain; Nmap sends service-detection probes to the target IP; and WhatWeb requests the target URL. When an HTTP response is `403`, RADAR makes additional GET attempts with alternate headers. Do not use an untrusted webhook: the event payload can contain infrastructure details and raw response/WHOIS data.
 
+Webhook failures are logged. Delivery is attempted during the scan, but a failed receiver can mean results are not delivered; use an available, reachable endpoint and monitor its responses.
+
+## Worker HTTP Mode
+
+The published image defaults to a worker server listening on port `8090`. It accepts `POST /api/scan` with JSON fields `target`, `tenantId`, `organizationId`, `scanId`, `isOsintMode` (optional), and `webhookUrl`. Requests must include `X-Radar-Timestamp` (Unix seconds) and `X-Radar-Signature` (hex HMAC-SHA256 of `<timestamp>.<raw request body>` using `RADAR_WORKER_SECRET`). Timestamps more than five minutes from the worker clock are rejected. A valid command receives HTTP `202` and starts a scan.
+
+Example server start:
+
+```sh
+docker run -d --name radar-worker \
+  -p 8090:8090 \
+  -e RADAR_WORKER_SECRET='replace-with-a-long-random-secret' \
+  chmod351/radar:latest
 ```
 
-## Lint:
+**Worker deployment limitation:** the worker starts a separate container by invoking `docker run`, but the published image does not include the Docker CLI or mount the host Docker socket. As shipped, the HTTP server can start, but it cannot launch scan containers unless you provide Docker CLI/daemon access in your deployment. Treat this mode as integration plumbing, not a ready-to-deploy remote worker.
 
-To run the linter across the entire project: `bun run lint:fix`
+## Data Storage
 
-## Radar uses SQLite to store information
+RADAR contains a SQLite schema for scans, targets, infrastructure, ports, and technology stack data. The default database path is in-memory, and worker-launched scans explicitly use an in-memory database, so data is discarded when the process/container exits. Current use cases primarily publish results to the webhook; there is no documented user-facing query command or local report export.
 
-Check the manual to read the available queries.
+## Development and Checks
 
-## Disclaimer
+```sh
+bun install
+bun run check       # ESLint and TypeScript type check
+bun test            # Tests
+```
 
-This tool was created for asset management and authorized security auditing. Any use on systems without consent is the sole responsibility of the user.
+For local Docker development, build the image first with `docker build -t radar .`, then invoke the wrapper with `NODE_ENV=dev` as shown above. The wrapper's `test` environment follows the same Docker path.
+
+## Responsible Use
+
+Only scan assets that you own or are explicitly authorized to assess. RADAR performs active HTTP and Nmap probes, including service/version detection and additional header variations after HTTP 403 responses. Confirm the target scope and obtain approval before running it; operators are responsible for complying with applicable laws, contracts, and provider policies.
 
 
