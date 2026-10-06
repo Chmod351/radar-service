@@ -7,7 +7,6 @@ import { normalizeTarget } from "../infra/mappers/normalizeJson";
 import { enrichWebData, getASNInfo, getWhoisIntel, resolveSingleDomain } from "../infraProbes";
 import { identifyCDN } from "../utils/cdnDetector";
 import { classifyTarget } from "../utils/classifyTarget";
-import infraService from "./phase2.repository";
 
 export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Promise<Partial<AnalyzedTarget> | null> {
   try {
@@ -25,7 +24,7 @@ export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Pr
       ...asnInfo,
     };
 
-    const { cdn }= identifyCDN(baseData);
+    const { cdn } = identifyCDN(baseData, webInfo.webserver || undefined);
 
     baseData.cdn=cdn;
 
@@ -36,10 +35,24 @@ export async function dnsPhaseStream(subdomain: string,scanId:number|bigint): Pr
     }
 
     // const res= await infraService.saveDNSphaseInfo(analyzed as AnalyzedTarget,scanId);
-   const normalized: AnalyzedTarget = normalizeTarget(
-  { ...analyzed, id: scanId } as AnalyzedTarget, 
-  scanId
-);
+    const normalized: AnalyzedTarget = normalizeTarget(
+      {
+        ...analyzed,
+        id: scanId,
+        analysis_phase: 2,
+        analysis_state: "partial",
+        analysis_confidence: "low",
+        evidence: {
+          dns: true,
+          asn: Boolean(asnInfo.asn || asnInfo.asn_owner),
+          http: Boolean(webInfo.status_code || webInfo.webserver),
+          whois: Boolean(analyzed.whois),
+          nmap: false,
+          whatweb: false,
+        },
+      } as AnalyzedTarget,
+      scanId,
+    );
     return normalized;
 
   } catch (error: unknown) {

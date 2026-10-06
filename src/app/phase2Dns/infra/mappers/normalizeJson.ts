@@ -2,7 +2,6 @@ import { randomInt } from "node:crypto";
 import type { AnalyzedTarget, HttpIntel } from "../../../../core/entities/types";
 import { CDN_PROVIDERS, emptyWhois, normalizedIntel, SENSORS } from "../../../../shared/utils/const";
 import { normalizeWhois } from "./whois.mapper";
-import { logger } from "../../../../shared/systemLogger";
 
 
 export function normalizeHttpIntel(raw:HttpIntel):HttpIntel {
@@ -21,6 +20,7 @@ export function normalizeHttpIntel(raw:HttpIntel):HttpIntel {
     cookies:Boolean(raw.cookies),
     error:raw.error ?? null,
     attempts:raw.attempts,
+    headers: raw.headers ? { ...raw.headers } : undefined,
   }; 
 }
 export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): AnalyzedTarget {
@@ -47,6 +47,10 @@ export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): 
       http_intel: normalizedIntel,
       whois: emptyWhois,
       whois_raw: null,
+      analysis_phase: 2,
+      analysis_state: "partial",
+      analysis_confidence: "low",
+      evidence: { dns: false, asn: false, http: false, whois: false, nmap: false, whatweb: false },
     };
   }
 
@@ -67,6 +71,10 @@ export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): 
     webserver: raw.webserver || null,
     cdn: raw.cdn || CDN_PROVIDERS.NONE,
     action: raw.action || SENSORS.ACTION.READY,
+    analysis_phase: raw.analysis_phase ?? 2,
+    analysis_state: raw.analysis_state ?? "partial",
+    analysis_confidence: raw.analysis_confidence ?? "low",
+    evidence: raw.evidence ?? { dns: true, asn: Boolean(raw.asn), http: Boolean(raw.status_code), whois: Boolean(raw.whois), nmap: false, whatweb: false },
     // Aquí está la magia: fallback a array vacío para evitar TypeErrors
     http_stack: Array.isArray(raw.http_stack) ? raw.http_stack : [],
     open_ports: Array.isArray(raw.open_ports) ? raw.open_ports : [],

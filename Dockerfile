@@ -26,6 +26,9 @@ ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.bu
 
 WORKDIR /app
 
+ENV RADAR_WORKER_SERVER=true
+ENV RADAR_WORKER_PORT=8090
+
 COPY package.json bun.lockb* ./
 RUN bun install
 
@@ -34,4 +37,5 @@ COPY . .
 RUN chmod -R 755 /app
 
 ENTRYPOINT ["bun"]
-CMD ["run","/app/src/core/orchestrator.ts"]
+EXPOSE 8090
+CMD ["run", "/app/radar.ts"]

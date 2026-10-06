@@ -11,7 +11,7 @@ export const signatures = [
   { key: "gse", id: CDN_PROVIDERS.GOOGLE_CDN },
   { key:"google-front",id:CDN_PROVIDERS.GOOGLE_CDN },
   { key: "x-amz-cf", id: CDN_PROVIDERS.CLOUDFRONT },
-  { key: "cf-ray", id: CDN_PROVIDERS.CLOUDFLARE },    
+  { key: "cf-ray", id: CDN_PROVIDERS.CLOUDFLARE },
 ];
 
 // bun ya maneja user agents, toca migrar esto al binario de bun

@@ -6,7 +6,6 @@ import { getErrorMessage } from "../../../shared/utils/utils";
 import { normalizeHttpIntel, normalizeTarget } from "../../phase2Dns/infra/mappers/normalizeJson";
 import { identifyCDN } from "../../phase2Dns/utils/cdnDetector";
 import { getWebIntel, scanPortsSafe } from "../serverFingerPrintingProbe";
-import fingerprintingPhaseService from "./phase3.repository";
 
 
 export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number | bigint): Promise<AnalyzedTarget> {
@@ -23,7 +22,7 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
     const httpIntelNormalized = normalizeHttpIntel(httpData.http_intel as HttpIntel);
 
     const webserver = httpIntelNormalized.server || httpData.http_stack?.[0]?.name;
-    const headersRaw = JSON.stringify(httpData.http_stack || {});
+    const headersRaw = JSON.stringify(httpIntelNormalized.headers || {});
 
     const { cdn } = identifyCDN(target, webserver, headersRaw);
 
@@ -33,6 +32,17 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
       http_stack: httpData.http_stack,
       open_ports: openPorts || [],
       cdn,
+      analysis_phase: 3 as const,
+      analysis_state: "complete" as const,
+      analysis_confidence: "high" as const,
+      evidence: {
+        dns: true,
+        asn: Boolean(target.asn || target.asn_owner),
+        http: Boolean(httpIntelNormalized.status || httpIntelNormalized.server),
+        whois: Boolean(target.whois),
+        nmap: true,
+        whatweb: true,
+      },
     };
     const normalized = normalizeTarget(result, scanId);
     // const data= await fingerprintingPhaseService.saveFingerprintingInfo(host, normalized,scanId);
@@ -42,6 +52,14 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
 
     return {
       ...target,
+      analysis_phase: 3,
+      analysis_state: "failed",
+      analysis_confidence: "low",
+      evidence: {
+        ...(target.evidence || { dns: true, asn: false, http: false, whois: false, nmap: false, whatweb: false }),
+        nmap: false,
+        whatweb: false,
+      },
       http_intel: {
         ...normalizedIntel,
         error: getErrorMessage(error) ?? "Fallo el fingerprinting",

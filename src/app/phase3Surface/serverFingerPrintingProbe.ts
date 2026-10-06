@@ -1,16 +1,15 @@
 import { logger } from "../../shared/systemLogger.ts";
-import { generateBypassPayloads, getErrorMessage } from "../../shared/utils/utils.ts";
-import { normalizedIntel,PROTOCOLS } from "../../shared/utils/const.ts";
+import { generateBypassPayloads, getErrorMessage, getRandomAgent } from "../../shared/utils/utils.ts";
+import { normalizedIntel } from "../../shared/utils/const.ts";
 import type { BypassAttempt, HttpIntel, OpenPort, WhatWebPluginDetails } from "../../core/entities/types.ts";
 import { compareSize } from "../../app/phase3Surface/utils.ts";
 import { getWebPageFingerprinting } from "./infra/adapters/fingerprinting.adapter.ts";
 import { whatwebParser } from "./infra/mappers/whatweb.mapper.ts";
-import { fetchFallback, fetchTargetWithTimeout, tryFuff } from "./infra/adapters/headers.adapter.ts";
-import { bypassAttemptParser, headersFormatter } from "../phase2Dns/infra/mappers/http.mapper.ts";
+import { fetchFallback, fetchTargetWithTimeout, tryFuff, tryFuffFallback } from "./infra/adapters/headers.adapter.ts";
+import { headersFormatter } from "../phase2Dns/infra/mappers/http.mapper.ts";
 import { getPortsAvailable } from "./infra/adapters/nmap.adapter.ts";
 import { parseNmapOutput } from "./infra/mappers/nmap.mapper.ts";
 import { httpIntelBuilder } from "./infra/mappers/headers.mapper.ts";
-import { withRetry } from "../../shared/retry.ts";
 
 
 
@@ -37,59 +36,51 @@ async function webTechFingerprintingService(target:string) {
 
 
 async function analyzeHeaders(url: string):Promise<HttpIntel> {
+  const userAgent = getRandomAgent() ?? "Radar/1.0";
   try {
-
-    const response = await fetchTargetWithTimeout(url);
-    
+    const { response, size, sizeComplete } = await fetchTargetWithTimeout(url, null, userAgent);
     const headers = Object.fromEntries(response.headers.entries());
-    const contentLength = parseInt(response.headers.get("content-length") || "0");
-
-    const statusCode=response.status;
-    const attemps= [{ method:"GET",header:null,status:response.status,size:contentLength,timestamp:new Date().toISOString() }];
-
-    const cookies =!!response.headers.get("set-cookie");
-    const parsedResponse= httpIntelBuilder(headers, url,statusCode,attemps,cookies);
-
-    return parsedResponse;
-  } catch (error: unknown) {
-    
-    logger.error("HEADERS", getErrorMessage(error));
-
-    return   await headersFallback(url);
-      
-  }
-}
-
-async function bypassController (baseResults:{protocol:number,status:number},url:string) {
-  if (baseResults.status===403) {
-    logger.warn("HEADERS CURL:",`403 Detectado para ${url}, Iniciando fase de Sniffing`);
-    const  performedAttempts = await withRetry("BYPASS-ATTEMPT:", ()=>  performBypassAttempt(url),{ retries:2,delay:3000 });
-    return performedAttempts;
-  } else {
-    const   performedAttempts=[{ method:"HEAD",header:null,status:baseResults.status,size:0,timestamp:new Date().toISOString() }];
-    return performedAttempts;
-  }
-}
-
-async function headersFallback(url:string) :Promise<HttpIntel>{
-  try {
-    const stdout = await fetchFallback(url);
-
-    const { headers,statusCode }= headersFormatter(stdout); 
-
-    const baseResults={
-      protocol:url.startsWith("https")? PROTOCOLS.APP.HTTPS:PROTOCOLS.APP.HTTP,
-      status:isNaN(statusCode)?0:statusCode,
+    const baseline: BypassAttempt = {
+      method: "GET",
+      header: null,
+      status: response.status,
+      size,
+      size_complete: sizeComplete,
+      timestamp: new Date().toISOString(),
     };
+    const attempts = [baseline];
 
-    let performedAttempts;
-  
-    performedAttempts = await bypassController(baseResults, url);
-       
-    const successfulAttempt = performedAttempts.find(a => a.status === 200); 
-    const finalStatus = successfulAttempt ? successfulAttempt.status : baseResults.status;
+    if (response.status === 403) {
+      attempts.push(...await performBypassAttempt(url, userAgent, baseline));
+    }
 
-    return httpIntelBuilder(headers,url,finalStatus,performedAttempts,!!headers["set-cookie"]);
+    return httpIntelBuilder(headers, url, response.status, attempts, !!response.headers.get("set-cookie"));
+  } catch (error: unknown) {
+    logger.error("HEADERS", getErrorMessage(error));
+    return headersFallback(url, userAgent);
+  }
+}
+
+async function headersFallback(url: string, userAgent: string): Promise<HttpIntel> {
+  try {
+    const fallback = await fetchFallback(url, userAgent);
+    const { headers } = headersFormatter(fallback.headers);
+    const baseline: BypassAttempt = {
+      method: "GET",
+      header: null,
+      status: fallback.status,
+      size: fallback.size,
+      size_complete: fallback.sizeComplete,
+      ...(fallback.error ? { error: fallback.error } : {}),
+      timestamp: new Date().toISOString(),
+    };
+    const attempts = [baseline];
+
+    if (fallback.status === 403) {
+      attempts.push(...await performBypassAttempt(url, userAgent, baseline, true));
+    }
+
+    return httpIntelBuilder(headers, url, fallback.status, attempts, !!headers["set-cookie"]);
 
   } catch (error:unknown) {
     logger.error("HEADERS-CURL", getErrorMessage(error));
@@ -102,32 +93,45 @@ async function headersFallback(url:string) :Promise<HttpIntel>{
 }
 
 
-async function performBypassAttempt(url: string): Promise<BypassAttempt[]> {
+async function performBypassAttempt(
+  url: string,
+  userAgent: string,
+  baseline: BypassAttempt,
+  useCurlFallback = false,
+): Promise<BypassAttempt[]> {
   const attempts: BypassAttempt[] = [];
-  const bypassPayloads=generateBypassPayloads(url);
+  const bypassPayloads = generateBypassPayloads(url).filter((payload) => payload.header !== null);
 
   for (const payload of bypassPayloads) {
     const jitter = Math.floor(Math.random() * 500);
     await Bun.sleep(jitter); 
     try {
-      // Usamos -w para obtener el HTTP CODE y el SIZE_DOWNLOAD al final del output
-      const stdout = await tryFuff(url, payload.header);
-
-      if (stdout) {
-
-        const { status,s,size }= bypassAttemptParser(stdout);
-        
-        attempts.push({
-          method: "GET",
-          header: payload.header,
-          status,
-          size:s,
-          timestamp: new Date().toISOString(),
-        });
-        compareSize(attempts, status, url, size, payload.header, s);
-      }
+      const result = useCurlFallback
+        ? await tryFuffFallback(url, payload.header, userAgent)
+        : await tryFuff(url, payload.header, userAgent);
+      const resultError = "error" in result && typeof result.error === "string" ? result.error : undefined;
+      const attempt: BypassAttempt = {
+        method: "GET",
+        header: payload.header,
+        status: result.status,
+        size: result.size,
+        size_complete: result.sizeComplete,
+        ...(resultError ? { error: resultError } : {}),
+        timestamp: new Date().toISOString(),
+      };
+      attempts.push(attempt);
+      compareSize(baseline, attempt, url);
     } catch (error) {
       logger.error("BYPASS-ATTEMPT", `Error probando ${payload.name}: ${getErrorMessage(error)}`);
+      attempts.push({
+        method: "GET",
+        header: payload.header,
+        status: 0,
+        size: 0,
+        size_complete: false,
+        error: getErrorMessage(error),
+        timestamp: new Date().toISOString(),
+      });
     }
   }
   return attempts;

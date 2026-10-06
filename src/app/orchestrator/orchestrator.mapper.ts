@@ -29,6 +29,7 @@ export function normalizeRadarTarget(payload: any,scanId:number): AnalyzedTarget
     poweredBy: payload.http_intel?.poweredBy || null,
     cookies: !!payload.http_intel?.cookies,
     attempts: Array.isArray(payload.http_intel?.attempts) ? payload.http_intel.attempts : [],
+    headers: payload.http_intel?.headers,
     error: payload.http_intel?.error || null,
   };
 
@@ -53,6 +54,10 @@ export function normalizeRadarTarget(payload: any,scanId:number): AnalyzedTarget
     title: payload.title || null,
     webserver: payload.webserver || payload.http_intel?.server || "Desconocido",
     cdn: payload.cdn ?? null,
+    analysis_phase: payload.analysis_phase ?? 2,
+    analysis_state: payload.analysis_state ?? "partial",
+    analysis_confidence: payload.analysis_confidence ?? "low",
+    evidence: payload.evidence,
 
     // ASNIntel (Datos provistos por Docker en Fase 2, se arrastran o inicializan en null)
     asn: payload.asn || null,

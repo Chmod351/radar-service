@@ -5,13 +5,14 @@ import { BunEventPublisher } from "../events/events.adapter";
 import { Orchestrator } from "../orchestrator/orchestrator";
 import { normalizeScanTarget } from "../orchestrator/url.mapper";
 
-async function main(target:string) {
-  const publisher= new BunEventPublisher();
-  const orchestrator = new Orchestrator(publisher); 
+async function main(target: string) {
+  const publisher = new BunEventPublisher();
+  const orchestrator = new Orchestrator(publisher);
   try {
     await orchestrator.start(target);
+    await publisher.flush();
   } catch (error) {
-    logger.error(PHASES.ORCHESTRATOR,`ERROR AL INTENTAR EJECUTAR EL ORQUESTADOR ${error}`);
+    logger.error(PHASES.ORCHESTRATOR, `ERROR AL INTENTAR EJECUTAR EL ORQUESTADOR ${error}`);
     process.exit(1);
   }
 }
