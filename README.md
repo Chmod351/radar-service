@@ -5,6 +5,9 @@
 
 # RADAR
 
+
+
+
 **Reconnaissance & Advanced Data Analysis Runtime** is a TypeScript/Bun command-line tool for discovering and profiling an organization's internet-facing domain assets. It streams discovered subdomains through DNS, network-ownership, web-server, and (unless OSINT-only mode is enabled) service-fingerprinting checks, then sends structured results to a webhook.
 
 RADAR is intended for asset inventory and authorized external attack-surface reviews. It is not a vulnerability scanner, exploitation framework, or guarantee that every asset will be discovered.
@@ -150,6 +153,10 @@ bun test            # Tests
 ```
 
 For local Docker development, build the image first with `docker build -t radar .`, then invoke the wrapper with `NODE_ENV=dev` as shown above. The wrapper's `test` environment follows the same Docker path.
+
+https://radar-dashboard-plum.vercel.app  
+
+<img width="1378" height="835" alt="2026-10-14_18-40-17" src="https://github.com/user-attachments/assets/b0791450-7e53-4169-867e-696e355083b3" />
 
 ## Responsible Use
 
