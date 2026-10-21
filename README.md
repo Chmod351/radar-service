@@ -1,7 +1,9 @@
-<p align="center">
-  <img src="https://img.shields.io/github/v/tag/Chmod351/radar-service?color=green&label=version&sort=semver" alt="Latest version">
-  <img src="https://img.shields.io/github/license/Chmod351/radar-service" alt="License">
-</p>
+
+  
+![Docker Pulls](https://img.shields.io/docker/pulls/chmod351/radar)
+![Docker Image Version](https://img.shields.io/docker/v/chmod351/radar?sort=semver)
+<img src="https://img.shields.io/github/license/Chmod351/radar-service" alt="License">
+
 
 # RADAR
 
