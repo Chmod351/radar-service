@@ -1,4 +1,5 @@
 import type { AnalyzedTarget, HttpIntel } from "../../../core/entities/types";
+import { isOsintMode } from '../../../infra/enviromentVariables';
 import { withRetry } from "../../../shared/retry";
 import { logger } from "../../../shared/systemLogger";
 import { normalizedIntel } from "../../../shared/utils/const";
@@ -29,7 +30,7 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
       open_ports:[],
       cdn,
       analysis_phase: 2 as const,
-      analysis_state: "complete" as const,
+      analysis_state: isOsintMode? "complete" as const : "partial" as const,
       analysis_confidence: "medium" as const,
       evidence: {
         dns: true,
