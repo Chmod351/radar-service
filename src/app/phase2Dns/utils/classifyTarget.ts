@@ -12,19 +12,19 @@ export function classifyTarget(domainData: DnsPhase): Partial<AnalyzedTarget> {
   const fingerprint = `${domainData.ip}_${domainData.status_code}_${domainData.title}`;
 
 
-  let action:number = SENSORS.ACTION.SKIP;
+  let action:0|1|2|3 = SENSORS.ACTION.SKIP;
 
   if (globalFingerprints.has(fingerprint)) {
-    return { ...domainData, 
+    return { ...domainData,
       action: SENSORS.ACTION.DUPLICATE ,
     };
   }
 
   globalFingerprints.add(fingerprint);
- 
+
   if (isNoise) {
-    return { ...domainData, 
-      action, 
+    return { ...domainData,
+      action,
     };
   }
   action=SENSORS.ACTION.READY;

@@ -1,3 +1,4 @@
+export const SCAN_STATUS_COMPLETED="completed"
 export interface Technology {
   name: string;
   version: string | null;
@@ -106,7 +107,7 @@ export interface SearchSploitOutput {
 }
 
 export interface Classifier extends DnsPhase {
-  action: number,
+  action: 0|1|2|3,
 }
 
 export interface AnalyzedTarget extends Classifier, ASNIntel, WebMetadata, ResolvedDomain {
@@ -116,17 +117,16 @@ export interface AnalyzedTarget extends Classifier, ASNIntel, WebMetadata, Resol
   analysis_state?: AnalysisState;
   analysis_confidence?: AnalysisConfidence;
   evidence?: AnalysisEvidence;
-  // Datos de Fase 3 
+  whois: WhoisIntel;
+  whois_raw: string | null
+  // Datos de Fase 3
+  app_status: number;
   http_intel: HttpIntel;
   http_stack: Technology[];
   open_ports: OpenPort[]
 
   // Datos de Fase 4
   vulnerabilities: SearchSploitResult[]
-  app_status: number;
-
-  whois: WhoisIntel;
-  whois_raw: string | null
 }
 
 
@@ -139,7 +139,7 @@ export interface ReconSource {
 export interface EventPhaseEnd {
   scanId: number | bigint,
   id: number,
-  status: "completed",
+  status: typeof SCAN_STATUS_COMPLETED,
   total_stages_executed: number,
   total_subdomains_found: number
 }
