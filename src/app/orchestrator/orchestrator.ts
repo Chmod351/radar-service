@@ -1,15 +1,14 @@
-import type { AnalyzedTarget, EventPublisher } from "../../core/entities/types";
+import { SCAN_STATUS_COMPLETED, type AnalyzedTarget, type EventPublisher } from "../../core/entities/types";
+import { isOsintMode, scanId } from "../../infra/enviromentVariables";
+import { withRetry } from "../../shared/retry";
 import { logger } from "../../shared/systemLogger";
-import { PHASES } from "../../shared/utils/const";
+import { PHASES, SENSORS } from "../../shared/utils/const";
 import { getErrorMessage } from "../../shared/utils/utils";
 import { streamAllSubdomains } from "../phase1Recon/domain/subdomain.useCase";
 import { dnsPhaseStream } from "../phase2Dns/domain/infraResolver.useCase";
 import { fingerprintingPhase } from "../phase3Surface/domain/serverFingerprinting.useCase";
-import { scanId } from "../../infra/enviromentVariables";
+import { scanPortsSafe } from "../phase3Surface/serverFingerPrintingProbe";
 import { normalizeRadarTarget } from "./orchestrator.mapper";
-import { isOsintMode } from "../../infra/enviromentVariables";
-
-
 
 export class Orchestrator {
   constructor(private eventPublisher: EventPublisher) { }
@@ -39,48 +38,47 @@ export class Orchestrator {
           await this.eventPublisher.publish("host:discovered", "processing", normalizeRadarTarget(result, scanId));
           logger.info("EVENT ORCHESTRATOR HOST DISCOVERED:", result.host || sub);
 
-          if (isOsintMode) {
-            await this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(result, scanId));
-            return;
-          }
-
-          if (result.action === 2) {
+          if (!isOsintMode && result.action === SENSORS.ACTION.SKIP) {
             await this.eventPublisher.publish("host:updated", "partial", normalizeRadarTarget(result, scanId));
             return;
           }
 
-          if (!scannedIps.has(result.ip)) {
-            const scanPromise = (async () => {
-              return await fingerprintingPhase(result as AnalyzedTarget, scanId);
-            })();
+          // Fingerprinting web: se ejecuta para cada hostname, también en OSINT.
+          const webData = await fingerprintingPhase(result as AnalyzedTarget, scanId);
+          let finalData: AnalyzedTarget = webData;
 
-            scannedIps.set(result.ip, scanPromise);
-            const finalData = await scanPromise;
-            await this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(finalData, scanId));
-            logger.info("EVENT ORCHESTRATOR UPDATE:", finalData.host || result.host || "unknown");
+          // Nmap: solamente en Deep, deduplicado por IP.
+          if (!isOsintMode && finalData && finalData.ip) {
+            if (!scannedIps.has(result.ip)) {
+              const scanPromise = (async () => {
+                const openPorts = await withRetry(
+                  "nmap-scan",
+                  () => scanPortsSafe(finalData.ip),
+                  { retries: 2, delay: 2000 },
+                );
 
-          } else {
-            logger.debug(PHASES.ORCHESTRATOR, `Omitiendo Nmap para ${result.host}. IP ${result.ip} ya está cubierta.`);
-            const fatherData = await scannedIps.get(result.ip);
-            logger.warn("WHOIS:", fatherData?.whois_raw || "N/A");
-            if (fatherData) {
-              const updatedChild = {
-                ...(result as AnalyzedTarget),
-                open_ports: fatherData.open_ports || [],
-                webserver: fatherData.webserver || result.webserver || null,
-                http_intel: fatherData.http_intel,
-                http_stack: fatherData.http_stack,
-                whois: fatherData.whois,
-                whois_raw: fatherData.whois_raw,
-                cdn: result.cdn ?? fatherData.cdn,
-                analysis_phase: fatherData.analysis_phase,
-                analysis_state: fatherData.analysis_state,
-                analysis_confidence: fatherData.analysis_confidence,
-                evidence: fatherData.evidence,
+                return {
+                  ...webData,
+                  open_ports: openPorts,
+                };
+              })();
+              scannedIps.set(result.ip, scanPromise);
+              finalData = await scanPromise;
+            } else {
+              logger.debug(PHASES.ORCHESTRATOR, `Omitiendo Nmap para ${result.host}. IP ${result.ip} ya está cubierta.`);
+
+              const infrastructureData = await scannedIps.get(result.ip);
+
+              finalData = {
+                ...webData,
+                open_ports: infrastructureData?.open_ports || [],
               };
-              await this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(updatedChild, scanId));
             }
           }
+
+          await this.eventPublisher.publish("host:updated", "success", normalizeRadarTarget(finalData, scanId));
+          logger.info("EVENT ORCHESTRATOR UPDATE:", finalData.host || result.host || "unknown");
+
         } catch (e: unknown) {
           logger.error(PHASES.ORCHESTRATOR, getErrorMessage(e));
         }
@@ -93,22 +91,24 @@ export class Orchestrator {
 
     await Promise.all(allTasks);
 
-    await this.eventPublisher.publish("phase-1", "completed", {
+    await this.eventPublisher.publish("phase-1", SCAN_STATUS_COMPLETED, {
       scanId,
       id: 0,
-      status: "completed",
+      status: SCAN_STATUS_COMPLETED,
       total_subdomains_found: totalOfSubs,
-      total_stages_executed: isOsintMode ? 2 : 3,
+      total_stages_executed: isOsintMode? 2 : 3,
     });
-    logger.info("EVENT ORCHESTRATOR: Phase 1", "completed");
-    await this.eventPublisher.publish("scan:finished", "completed", {
-      scanId,
-      id: 0,
-      status: "completed",
-      total_stages_executed: isOsintMode ? 2 : 3,
-      total_subdomains_found: totalOfSubs,
-    });
-    logger.info(`EVENT ORCHESTRATOR:${isOsintMode ? "Phase 2" : "Phase 3"}`, "completed");
 
+    logger.info("EVENT ORCHESTRATOR: Phase 1", SCAN_STATUS_COMPLETED);
+
+    await this.eventPublisher.publish("scan:finished", SCAN_STATUS_COMPLETED, {
+      scanId,
+      id: 0,
+      status: SCAN_STATUS_COMPLETED,
+      total_stages_executed: isOsintMode? 2 : 3,
+      total_subdomains_found: totalOfSubs,
+    });
+
+    logger.info(`EVENT ORCHESTRATOR:${isOsintMode ? "Phase 2" :"Phase 3" }`,SCAN_STATUS_COMPLETED);
   }
 }

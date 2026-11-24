@@ -5,19 +5,15 @@ import { normalizedIntel } from "../../../shared/utils/const";
 import { getErrorMessage } from "../../../shared/utils/utils";
 import { normalizeHttpIntel, normalizeTarget } from "../../phase2Dns/infra/mappers/normalizeJson";
 import { identifyCDN } from "../../phase2Dns/utils/cdnDetector";
-import { getWebIntel, scanPortsSafe } from "../serverFingerPrintingProbe";
+import { getWebIntel } from "../serverFingerPrintingProbe";
 
 
 export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number | bigint): Promise<AnalyzedTarget> {
-  const host = target.host;
 
   try {
     logger.info("FINGERPRINTING:", `target: ${target.host}`);
 
-    const [httpData, openPorts] = await Promise.all([
-      withRetry("http-intel", () => getWebIntel(target.url), { retries: 2 }),
-      withRetry("nmap-scan", () => scanPortsSafe(host), { retries: 2, delay: 2000 }),
-    ]);
+    const httpData = await withRetry("http-intel", () => getWebIntel(target.url), { retries: 2 })
 
     const httpIntelNormalized = normalizeHttpIntel(httpData.http_intel as HttpIntel);
 
@@ -30,17 +26,17 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
       ...target,
       http_intel: httpIntelNormalized || normalizedIntel,
       http_stack: httpData.http_stack,
-      open_ports: openPorts || [],
+      open_ports:[],
       cdn,
-      analysis_phase: 3 as const,
+      analysis_phase: 2 as const,
       analysis_state: "complete" as const,
-      analysis_confidence: "high" as const,
+      analysis_confidence: "medium" as const,
       evidence: {
         dns: true,
         asn: Boolean(target.asn || target.asn_owner),
         http: Boolean(httpIntelNormalized.status || httpIntelNormalized.server),
         whois: Boolean(target.whois),
-        nmap: true,
+        nmap: false,
         whatweb: true,
       },
     };
@@ -48,11 +44,11 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
     // const data= await fingerprintingPhaseService.saveFingerprintingInfo(host, normalized,scanId);
     return normalized;
   } catch (error: unknown) {
-    logger.error("PHASE-03", getErrorMessage(error));
+    logger.error("PHASE 2", getErrorMessage(error));
 
     return {
       ...target,
-      analysis_phase: 3,
+      analysis_phase: 2,
       analysis_state: "failed",
       analysis_confidence: "low",
       evidence: {
@@ -68,6 +64,6 @@ export async function fingerprintingPhase(target: AnalyzedTarget, scanId: number
       open_ports: target.open_ports,
     };
   } finally {
-    logger.info("PHASE 3:", `[#] Fingerprinting Finalizado ${target.host}`);
+    logger.info("PHASE 2:", `[#] Fingerprinting Finalizado ${target.host}`);
   }
 }

@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 import type { AnalyzedTarget, HttpIntel } from "../../../../core/entities/types";
-import { CDN_PROVIDERS, emptyWhois, normalizedIntel, SENSORS } from "../../../../shared/utils/const";
+import { CDN_PROVIDERS, SENSORS, emptyWhois, normalizedIntel } from "../../../../shared/utils/const";
 import { normalizeWhois } from "./whois.mapper";
 
 
@@ -21,7 +21,7 @@ export function normalizeHttpIntel(raw:HttpIntel):HttpIntel {
     error:raw.error ?? null,
     attempts:raw.attempts,
     headers: raw.headers ? { ...raw.headers } : undefined,
-  }; 
+  };
 }
 export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): AnalyzedTarget {
   // Si es nulo, generamos el "Grado Cero" del objeto para que el resto del sistema no explote
@@ -33,7 +33,7 @@ export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): 
       ip: "0.0.0.0",
       app_status: 0,
       url: "",
-      action:0,
+      action:SENSORS.ACTION.SCAN_FAILED,
       asn:"unknown",
       country:"unknown",
       asn_owner:"unknown",
@@ -82,7 +82,7 @@ export function normalizeTarget(raw: AnalyzedTarget|null,scanId:number|bigint): 
 
     // Si no hay datos, devolvemos null explícito, no un campo faltante
     http_intel: raw.http_intel ? normalizeHttpIntel(raw.http_intel) : normalizedIntel,
-    whois: (typeof raw.whois === "object" && raw.whois !== null) 
-      ? raw.whois 
+    whois: (typeof raw.whois === "object" && raw.whois !== null)
+      ? raw.whois
       : (typeof raw.whois_raw === "string" ? normalizeWhois(raw.whois_raw) : emptyWhois) };
 }
